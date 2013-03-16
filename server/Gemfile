@@ -1,1 +1,2 @@
 gem "em-zeromq"
+gem "msgpack"

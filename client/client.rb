@@ -1,4 +1,5 @@
 require 'em-zeromq'
+require 'msgpack'
 
 zmq = EM::ZeroMQ::Context.new(1)
 
@@ -17,7 +18,10 @@ EM.run {
     case (command = part.copy_out_string)
     when "send me your stats!"
       p "saying hello"
-      me.send_msg("hello there")
+      message = {method: "stats"}
+      stats = [["connections", 23]].map { |s| MessagePack.pack(s) }
+      
+      me.send_msg(MessagePack.pack(message), *stats)
     else
       p ["Unknown command", command]
     end

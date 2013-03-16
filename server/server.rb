@@ -1,4 +1,5 @@
 require 'em-zeromq'
+require 'msgpack'
 
 zmq = EM::ZeroMQ::Context.new(1)
 
@@ -11,8 +12,10 @@ class Client
     @socket.send_msg("hello #{address}")
     
     p 'reg callback'
-    @socket.on(:message) { |part|
-      p ["got stats", part.copy_out_string]
+    @socket.on(:message) { |*parts|
+      envelope = parts.shift
+      p [:envelope, MessagePack.unpack(envelope.copy_out_string)]
+      parts.each { |p| p MessagePack.unpack(p.copy_out_string) }
     }
   end
   
