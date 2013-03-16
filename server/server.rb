@@ -49,7 +49,8 @@ EM.run {
   reg.bind("tcp://127.0.0.1:2900")
   
   reg.on(:message) { |part|
-    p ["got reg", part.copy_out_string]
-    sc.add_client Client.new(zmq, part.copy_out_string)
+    reg = MessagePack.unpack(part.copy_out_string)
+    p ["got reg", reg]
+    sc.add_client Client.new(zmq, reg["Address"])
   }
 }

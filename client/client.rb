@@ -27,5 +27,7 @@ EM.run {
     end
   }
   
-  reg.send_msg(mysock)
+  reg.send_msg(MessagePack.pack({
+    "Address" => mysock
+  }))
 }
