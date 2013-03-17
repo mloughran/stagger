@@ -10,15 +10,17 @@ type RegMsg struct {
 	Address string
 }
 
-func StartRegistration() {
+func StartRegistration(reg_chan chan(*Client)) {
 	pull, _ := zmq.NewSocket(zmq.PULL)
 	defer pull.Close()
 	pull.Bind("tcp://127.0.0.1:2900")
 	log.Print("Have bound")
 	
 	for {
+		// Not sure if it's better to Recv or RecvBytes
 		msg, _ := pull.Recv(0)
 		log.Print("Have received")
+
 		// Convert into something with a Read method, bit horrible
 		// buf := bytes.NewBuffer(msg)
 		buf := strings.NewReader(msg)
@@ -31,6 +33,15 @@ func StartRegistration() {
 			return
 		}
 		
-		log.Print(resp.Address)
+		// Connect to the client, and if the client connects pass the client to
+		// the ClientManager
+
+		client := NewClient(resp.Address)
+
+		client.Connect()
+
+		// TODO: Check that we're really connected
+
+		reg_chan <- client
 	}
 }
