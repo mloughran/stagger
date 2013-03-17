@@ -16,7 +16,7 @@ EM.run {
     p part.copy_out_string
     
     case (command = part.copy_out_string)
-    when "send me your stats!"
+    when "send me your stats!", "Stats please!"
       p "saying hello"
       message = {method: "stats"}
       stats = [["connections", 23]].map { |s| MessagePack.pack(s) }

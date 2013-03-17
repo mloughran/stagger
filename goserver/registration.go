@@ -10,7 +10,7 @@ type RegMsg struct {
 	Address string
 }
 
-func StartRegistration(reg_chan chan(*Client)) {
+func StartRegistration(reg_chan chan(string)) {
 	pull, _ := zmq.NewSocket(zmq.PULL)
 	defer pull.Close()
 	pull.Bind("tcp://127.0.0.1:2900")
@@ -32,16 +32,7 @@ func StartRegistration(reg_chan chan(*Client)) {
 			log.Print(err)
 			return
 		}
-		
-		// Connect to the client, and if the client connects pass the client to
-		// the ClientManager
 
-		client := NewClient(resp.Address)
-
-		client.Connect()
-
-		// TODO: Check that we're really connected
-
-		reg_chan <- client
+		reg_chan <- resp.Address
 	}
 }

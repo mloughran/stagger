@@ -1,24 +1,32 @@
 package main
 
 import "log"
-// import "strings"
 
-// import msgpack "github.com/ugorji/go-msgpack"
 import zmq "github.com/pebbe/zmq3"
 
-type Client struct {
-	Address string
-}
-
-func NewClient(address string) *Client {
-	return &Client{address}
-}
-
-func (self *Client) Connect() {
+func RunClient(info ClientRef) {
 	sock, _ := zmq.NewSocket(zmq.PAIR)
 	defer sock.Close()
-	sock.Connect(self.Address)
+	log.Print("Connecting to ", info.Address)
+	sock.Connect(info.Address)
+
+	on_message := make(chan string)
+	go func() {
+		var s string
+		for {
+			// TODO: Handle error
+			s, _ = sock.Recv(0)
+			on_message <- s
+		}
+	}()
 	
-	// self.Log("Connected to ")
-	log.Print("Connected to ", self.Address)
+	for {
+		select {
+		case <- info.Mailbox:
+			log.Print("Requesting stats from ", info.Address)
+			sock.Send("Stats please!", zmq.DONTWAIT)
+		case msg := <- on_message:
+			log.Print(msg)
+		}
+	}
 }
