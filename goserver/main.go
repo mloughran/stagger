@@ -1,6 +1,8 @@
 package main
 
 import "log"
+import "os"
+import "os/signal"
 import "net/http"
 import _ "net/http/pprof"
 
@@ -11,6 +13,12 @@ func main() {
 
 	go StartClientManager(reg_chan)
 
-	// Pointless, what's the best way to make the process not exit?
-	log.Fatal(http.ListenAndServe(":8080", nil))
+	// Just used for debugging
+	go log.Fatal(http.ListenAndServe(":8080", nil))
+
+	// Exit cleanly
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt)
+	<-c
+	log.Print("[main] Exiting cleanly")
 }
