@@ -12,6 +12,9 @@ func RunClient(info ClientRef) {
 			events.SendMessage <- "Stats please!"
 		case multipart := <-events.OnMessage:
 			log.Print("[client] Received stats")
+			log.Print("envelope: ", multipart.Envelope)
+
+			// Handle message parts in a goroutine
 			go func() {
 				for {
 					select {

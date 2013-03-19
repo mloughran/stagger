@@ -11,8 +11,9 @@ type ZmqClientEvents struct {
 }
 
 type ZMQMultipart struct {
-	OnPart chan string
-	OnEnd  chan bool
+	Envelope string
+	OnPart   chan string
+	OnEnd    chan bool
 }
 
 // Creates a Zmq client, runs it's gorouting, and returns the channels on 
@@ -62,11 +63,11 @@ func RunZmqClient(addr string, events ZmqClientEvents) {
 			if err == nil {
 				if multipart_in_progress == false {
 					multipart_in_progress = true
-					multipart = ZMQMultipart{make(chan string), make(chan bool)}
+					multipart = ZMQMultipart{s, make(chan string), make(chan bool)}
 					events.OnMessage <- multipart
+				} else {
+					multipart.OnPart <- s
 				}
-
-				multipart.OnPart <- s
 
 				if more, _ = sock.GetRcvmore(); more == false {
 					multipart.OnEnd <- true
