@@ -19,7 +19,7 @@ func StartRegistration(reg_chan chan(string)) {
 	for {
 		// Not sure if it's better to Recv or RecvBytes
 		msg, _ := pull.Recv(0)
-		log.Print("Have received")
+		log.Print("[registration] Received")
 
 		// Convert into something with a Read method, bit horrible
 		// buf := bytes.NewBuffer(msg)

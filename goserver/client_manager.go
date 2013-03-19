@@ -24,7 +24,7 @@ func StartClientManager(registration chan(string)) {
 		
 			log.Print("Managing client: ", len(clients))
 		case <- heartbeat:
-			log.Print("heartbeat")
+			log.Print("[cm] Sending request for stats")
 			
 			// Send stats request to each client
 			for _, client := range clients {
