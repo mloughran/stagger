@@ -70,7 +70,7 @@ func RunZmqClient(addr string, events ZmqClientEvents) {
 
 				if more, _ = sock.GetRcvmore(); more == false {
 					multipart.OnEnd <- true
-					multipart_in_progress = true
+					multipart_in_progress = false
 				}
 			}
 		}

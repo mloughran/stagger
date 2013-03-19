@@ -19,6 +19,7 @@ func RunClient(info ClientRef) {
 						log.Print("[client] Stats part ", part)
 					case <-multipart.OnEnd:
 						log.Print("[client] End of stats stream")
+						return
 					}
 				}
 			}()
