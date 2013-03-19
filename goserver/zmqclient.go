@@ -5,19 +5,20 @@ import "log"
 import zmq "github.com/pebbe/zmq3"
 
 type ZmqClientEvents struct {
-	OnMessage   chan (string)
+	OnMessage   chan ZMQMultipart
 	OnClose     chan (bool)
 	SendMessage chan (string)
+}
+
+type ZMQMultipart struct {
+	OnPart chan string
+	OnEnd  chan bool
 }
 
 // Creates a Zmq client, runs it's gorouting, and returns the channels on 
 // which you should communicate
 func NewZmqClient(addr string) ZmqClientEvents {
-	events := ZmqClientEvents{make(chan string), make(chan bool), make(chan string)}
-
-	// on_message := make(chan string)
-	// on_close := make(chan bool)
-	// send_message := make(chan string)
+	events := ZmqClientEvents{make(chan ZMQMultipart), make(chan bool), make(chan string)}
 
 	go RunZmqClient(addr, events)
 
@@ -27,10 +28,6 @@ func NewZmqClient(addr string) ZmqClientEvents {
 // 
 func RunZmqClient(addr string, events ZmqClientEvents) {
 	sock, _ := zmq.NewSocket(zmq.PAIR)
-
-	// This could help with shutdown since at least read would exit...
-	// TODO: Configurable?
-	sock.SetRcvtimeo(1e9)
 
 	// Set a hwm of 1 - it's pointless to buffer requests for stats, and this
 	// means that we get an error when we try to send if the client has gone
@@ -42,11 +39,22 @@ func RunZmqClient(addr string, events ZmqClientEvents) {
 	log.Print("Connecting to ", addr)
 	sock.Connect(addr)
 
-	// TODO: This isn't correct because sock not threadsafe...
-	on_message := make(chan string)
+	// Used to get messages back into this goroutine
+	on_message := make(chan ZMQMultipart)
+
+	// These are used so that we can stop the reading goroutine - hacky...
+	// TODO: Configurable?
+	sock.SetRcvtimeo(1e9)
 	closed := false
+
+	// TODO: This isn't correct because sock not threadsafe...
 	go func() {
 		defer sock.Close()
+
+		var multipart_in_progress bool = false
+		var multipart ZMQMultipart
+		var more bool
+
 		for {
 			if closed {
 				return
@@ -55,7 +63,18 @@ func RunZmqClient(addr string, events ZmqClientEvents) {
 			// We expect an error when the rcv timeout is exceeded
 			s, err := sock.Recv(0)
 			if err == nil {
-				on_message <- s
+				if multipart_in_progress == false {
+					multipart_in_progress = true
+					multipart = ZMQMultipart{make(chan string), make(chan bool)}
+					on_message <- multipart
+				}
+
+				multipart.OnPart <- s
+
+				if more, _ = sock.GetRcvmore(); more == false {
+					multipart.OnEnd <- true
+					multipart_in_progress = true
+				}
 			}
 		}
 	}()
@@ -74,8 +93,8 @@ func RunZmqClient(addr string, events ZmqClientEvents) {
 
 				return
 			}
-		case msg := <-on_message:
-			events.OnMessage <- msg
+		case multipart := <-on_message:
+			events.OnMessage <- multipart
 		}
 	}
 }

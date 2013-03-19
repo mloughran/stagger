@@ -10,9 +10,18 @@ func RunClient(info ClientRef) {
 		case <-info.Mailbox:
 			log.Print("[client] Requesting stats from ", info.Address)
 			events.SendMessage <- "Stats please!"
-		case msg := <-events.OnMessage:
+		case multipart := <-events.OnMessage:
 			log.Print("[client] Received stats")
-			log.Print(msg)
+			go func() {
+				for {
+					select {
+					case part := <-multipart.OnPart:
+						log.Print("[client] Stats part ", part)
+					case <-multipart.OnEnd:
+						log.Print("[client] End of stats stream")
+					}
+				}
+			}()
 		case <-events.OnClose:
 			log.Print("[client] Connection to ", info.Address, " closed")
 			return
