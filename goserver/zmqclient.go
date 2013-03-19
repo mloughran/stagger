@@ -39,9 +39,6 @@ func RunZmqClient(addr string, events ZmqClientEvents) {
 	log.Print("Connecting to ", addr)
 	sock.Connect(addr)
 
-	// Used to get messages back into this goroutine
-	on_message := make(chan ZMQMultipart)
-
 	// These are used so that we can stop the reading goroutine - hacky...
 	// TODO: Configurable?
 	sock.SetRcvtimeo(1e9)
@@ -66,7 +63,7 @@ func RunZmqClient(addr string, events ZmqClientEvents) {
 				if multipart_in_progress == false {
 					multipart_in_progress = true
 					multipart = ZMQMultipart{make(chan string), make(chan bool)}
-					on_message <- multipart
+					events.OnMessage <- multipart
 				}
 
 				multipart.OnPart <- s
@@ -84,17 +81,13 @@ func RunZmqClient(addr string, events ZmqClientEvents) {
 	}()
 
 	for {
-		select {
-		case msg := <-events.SendMessage:
-			// Set DONTWAIT so that Send doesn't block when HWM is reached
-			if _, err := sock.Send(msg, zmq.DONTWAIT); err != nil {
-				log.Print("Closing client ", addr, " after ", err)
-				closed = true
+		msg := <-events.SendMessage
+		// Set DONTWAIT so that Send doesn't block when HWM is reached
+		if _, err := sock.Send(msg, zmq.DONTWAIT); err != nil {
+			log.Print("Closing client ", addr, " after ", err)
+			closed = true
 
-				return
-			}
-		case multipart := <-on_message:
-			events.OnMessage <- multipart
+			return
 		}
 	}
 }
