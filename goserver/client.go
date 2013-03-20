@@ -1,6 +1,25 @@
 package main
 
 import "log"
+import "strings"
+
+import msgpack "github.com/ugorji/go-msgpack"
+
+type StatsEnvelope struct {
+	Method string
+}
+
+// TODO: Return error if fails
+func decodeEnv(packed string) StatsEnvelope {
+	buf := strings.NewReader(packed)
+	var envelope StatsEnvelope
+	dec := msgpack.NewDecoder(buf, nil)
+	if err := dec.Decode(&envelope); err != nil {
+		log.Print(err)
+		// return
+	}
+	return envelope
+}
 
 func RunClient(info ClientRef) {
 	events := NewZmqClient(info.Address)
@@ -12,7 +31,9 @@ func RunClient(info ClientRef) {
 			events.SendMessage <- "Stats please!"
 		case multipart := <-events.OnMessage:
 			log.Print("[client] Received stats")
-			log.Print("envelope: ", multipart.Envelope)
+
+			envelope := decodeEnv(multipart.Envelope)
+			log.Print("envelope: ", envelope)
 
 			// Handle message parts in a goroutine
 			go func() {

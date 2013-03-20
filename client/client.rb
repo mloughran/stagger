@@ -18,7 +18,7 @@ EM.run {
     case (command = part.copy_out_string)
     when "send me your stats!", "Stats please!"
       p "saying hello"
-      message = {method: "stats"}
+      message = {Method: "stats"}
       stats = [["connections", 23]].map { |s| MessagePack.pack(s) }
       
       me.send_msg(MessagePack.pack(message), *stats)
