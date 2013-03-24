@@ -4,8 +4,9 @@ import "log"
 import "time"
 
 type ClientRef struct {
-	Address string
-	Mailbox chan (string)
+	Address      string
+	Mailbox      chan (string)
+	RequestStats chan (int64)
 }
 
 func StartClientManager(registration chan (string), stat_chan chan (Stat)) {
@@ -16,19 +17,19 @@ func StartClientManager(registration chan (string), stat_chan chan (Stat)) {
 	for {
 		select {
 		case client_address := <-registration:
-			mailbox := make(chan string)
-			client := ClientRef{client_address, mailbox}
+			client := ClientRef{client_address, make(chan string), make(chan int64)}
 			go RunClient(client, stat_chan)
 			log.Print("clientmanager", client.Address)
 			clients = append(clients, client)
 
 			log.Print("Managing client: ", len(clients))
-		case <-heartbeat:
+		case ts := <-heartbeat:
 			log.Print("[cm] Sending request for stats")
 
 			// Send stats request to each client
+			unix := ts.Unix()
 			for _, client := range clients {
-				client.Mailbox <- "send me more"
+				client.RequestStats <- unix
 			}
 		}
 	}

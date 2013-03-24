@@ -2,17 +2,24 @@ package main
 
 import "log"
 import "strings"
+import "bytes"
 
 import msgpack "github.com/ugorji/go-msgpack"
 
 type StatsEnvelope struct {
-	Method string
+	Method    string
+	Timestamp int64
 }
 
 type ProtStat struct {
 	N string
 	T string
 	V int
+}
+
+type StatsRequest struct {
+	Method    string
+	Timestamp int64
 }
 
 // TODO: Return error if fails
@@ -43,14 +50,25 @@ func RunClient(info ClientRef, stat_chan chan (Stat)) {
 
 	for {
 		select {
-		case <-info.Mailbox:
-			log.Print("[client] Requesting stats from ", info.Address)
-			events.SendMessage <- "Stats please!"
+		// case <-info.Mailbox:
+		// 	log.Print("[client] Requesting stats from ", info.Address)
+		// 	events.SendMessage <- "Stats please!"
+		case ts := <-info.RequestStats:
+			log.Print("[client] Requesting stats at ", ts, " from ", info.Address)
+
+			stats_req := StatsRequest{"report_all", ts}
+			var b bytes.Buffer
+			encoder := msgpack.NewEncoder(&b)
+			encoder.Encode(stats_req)
+
+			events.SendMessage <- &b
 		case multipart := <-events.OnMessage:
 			log.Print("[client] Received stats")
 
 			envelope := decodeEnv(multipart.Envelope)
 			log.Print("envelope: ", envelope)
+
+			ts := envelope.Timestamp
 
 			// Handle message parts in a goroutine
 			go func() {
@@ -61,7 +79,7 @@ func RunClient(info ClientRef, stat_chan chan (Stat)) {
 						log.Print("[client] Stats part ", stat)
 
 						// Send the data on to the stat_channel
-						stat_chan <- Stat{stat.N, stat.V}
+						stat_chan <- Stat{ts, stat.N, stat.V}
 					case <-multipart.OnEnd:
 						log.Print("[client] End of stats stream")
 						return

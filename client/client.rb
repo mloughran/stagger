@@ -13,12 +13,16 @@ EM.run {
   me.bind(mysock)
   
   me.on(:message) { |part|
-    p part.copy_out_string
+    e = MessagePack.unpack(part.copy_out_string)
+    p e
     
-    case (command = part.copy_out_string)
-    when "send me your stats!", "Stats please!"
+    case (command = e["Method"])
+    when "report_all"
       p "sending stats"
-      envelope = {Method: "stats"}
+      envelope = {
+        Method: "stats_reply",
+        Timestamp: e["Timestamp"],
+      }
       
       part1 = {
         N: "connections",

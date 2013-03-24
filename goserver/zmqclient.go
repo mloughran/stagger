@@ -1,13 +1,14 @@
 package main
 
 import "log"
+import "bytes"
 
 import zmq "github.com/pebbe/zmq3"
 
 type ZmqClientEvents struct {
 	OnMessage   chan ZMQMultipart
 	OnClose     chan (bool)
-	SendMessage chan (string)
+	SendMessage chan (*bytes.Buffer)
 }
 
 type ZMQMultipart struct {
@@ -19,7 +20,7 @@ type ZMQMultipart struct {
 // Creates a Zmq client, runs it's gorouting, and returns the channels on 
 // which you should communicate
 func NewZmqClient(addr string) ZmqClientEvents {
-	events := ZmqClientEvents{make(chan ZMQMultipart), make(chan bool), make(chan string)}
+	events := ZmqClientEvents{make(chan ZMQMultipart), make(chan bool), make(chan *bytes.Buffer)}
 
 	go RunZmqClient(addr, events)
 
@@ -84,7 +85,7 @@ func RunZmqClient(addr string, events ZmqClientEvents) {
 	for {
 		msg := <-events.SendMessage
 		// Set DONTWAIT so that Send doesn't block when HWM is reached
-		if _, err := sock.Send(msg, zmq.DONTWAIT); err != nil {
+		if _, err := sock.SendBytes(msg.Bytes(), zmq.DONTWAIT); err != nil {
 			log.Print("Closing client ", addr, " after ", err)
 			closed = true
 
