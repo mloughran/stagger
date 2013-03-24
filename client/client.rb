@@ -17,11 +17,16 @@ EM.run {
     
     case (command = part.copy_out_string)
     when "send me your stats!", "Stats please!"
-      p "saying hello"
-      message = {Method: "stats"}
-      stats = [["connections", 23]].map { |s| MessagePack.pack(s) }
+      p "sending stats"
+      envelope = {Method: "stats"}
       
-      me.send_msg(MessagePack.pack(message), *stats)
+      part1 = {
+        N: "connections",
+        T: "value",
+        V: 23,
+      }
+
+      me.send_msg(*[envelope, part1].map { |p| MessagePack.pack(p) })
     else
       p ["Unknown command", command]
     end

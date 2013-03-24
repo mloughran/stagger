@@ -8,7 +8,7 @@ type ClientRef struct {
 	Mailbox chan (string)
 }
 
-func StartClientManager(registration chan (string)) {
+func StartClientManager(registration chan (string), stat_chan chan (Stat)) {
 	clients := make([]ClientRef, 0)
 
 	heartbeat := time.Tick(5 * time.Second)
@@ -18,7 +18,7 @@ func StartClientManager(registration chan (string)) {
 		case client_address := <-registration:
 			mailbox := make(chan string)
 			client := ClientRef{client_address, mailbox}
-			go RunClient(client)
+			go RunClient(client, stat_chan)
 			log.Print("clientmanager", client.Address)
 			clients = append(clients, client)
 

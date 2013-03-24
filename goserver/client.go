@@ -9,6 +9,12 @@ type StatsEnvelope struct {
 	Method string
 }
 
+type ProtStat struct {
+	N string
+	T string
+	V int
+}
+
 // TODO: Return error if fails
 func decodeEnv(packed string) StatsEnvelope {
 	buf := strings.NewReader(packed)
@@ -21,7 +27,18 @@ func decodeEnv(packed string) StatsEnvelope {
 	return envelope
 }
 
-func RunClient(info ClientRef) {
+func decodeStat(packed string) ProtStat {
+	buf := strings.NewReader(packed)
+	var stat ProtStat
+	dec := msgpack.NewDecoder(buf, nil)
+	if err := dec.Decode(&stat); err != nil {
+		log.Print(err)
+		// return
+	}
+	return stat
+}
+
+func RunClient(info ClientRef, stat_chan chan (Stat)) {
 	events := NewZmqClient(info.Address)
 
 	for {
@@ -40,7 +57,11 @@ func RunClient(info ClientRef) {
 				for {
 					select {
 					case part := <-multipart.OnPart:
-						log.Print("[client] Stats part ", part)
+						stat := decodeStat(part)
+						log.Print("[client] Stats part ", stat)
+
+						// Send the data on to the stat_channel
+						stat_chan <- Stat{stat.N, stat.V}
 					case <-multipart.OnEnd:
 						log.Print("[client] End of stats stream")
 						return

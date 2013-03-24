@@ -8,10 +8,13 @@ import _ "net/http/pprof"
 
 func main() {
 	reg_chan := make(chan string)
+	stat_chan := make(chan Stat)
 
 	go StartRegistration(reg_chan)
 
-	go StartClientManager(reg_chan)
+	go StartClientManager(reg_chan, stat_chan)
+
+	go RunAggregator(stat_chan)
 
 	// Just used for debugging
 	go log.Fatal(http.ListenAndServe(":8080", nil))
