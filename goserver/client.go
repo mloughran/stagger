@@ -45,7 +45,7 @@ func decodeStat(packed string) ProtStat {
 	return stat
 }
 
-func RunClient(info ClientRef, stat_chan chan (Stat)) {
+func RunClient(info ClientRef, stat_chan chan (Stat), complete chan (CompleteMessage)) {
 	events := NewZmqClient(info.Address)
 
 	for {
@@ -82,6 +82,7 @@ func RunClient(info ClientRef, stat_chan chan (Stat)) {
 						stat_chan <- Stat{ts, stat.N, stat.V}
 					case <-multipart.OnEnd:
 						log.Print("[client] End of stats stream")
+						complete <- CompleteMessage{info.Id, ts}
 						return
 					}
 				}

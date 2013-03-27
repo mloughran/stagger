@@ -1,12 +1,22 @@
+// Each client is given a unique reference by the client manager. When stats are requested the client manager must make a record of all the clients for which the request was sent to, since it expects to get a reply from each one of them (which may be a different set from the current set of clients if a new client has just been registered).
+//
+// A set of clients is created for a given timestamp when the stats are requested. When a client goes away or a client has finished reporting all stats it is removed from this set. When the set is empty, or after a timeout (tbd) the aggregator is notified to say that a given timestamp should be considered complete. Any more stats for that timestamp arriving in the aggregator should then be thrown away.
+
 package main
 
 import "log"
 import "time"
 
 type ClientRef struct {
+	Id           int
 	Address      string
 	Mailbox      chan (string)
-	RequestStats chan (int64)
+	RequestStats chan (int64) // Request stats from a client for some ts
+}
+
+type CompleteMessage struct {
+	ClientId  int
+	Timestamp int64
 }
 
 func StartClientManager(registration chan (string), stat_chan chan (Stat)) {
@@ -14,11 +24,16 @@ func StartClientManager(registration chan (string), stat_chan chan (Stat)) {
 
 	heartbeat := time.Tick(5 * time.Second)
 
+	complete := make(chan CompleteMessage)
+
+	client_id := 1
+
 	for {
 		select {
 		case client_address := <-registration:
-			client := ClientRef{client_address, make(chan string), make(chan int64)}
-			go RunClient(client, stat_chan)
+			client := ClientRef{client_id, client_address, make(chan string), make(chan int64)}
+			client_id += 1
+			go RunClient(client, stat_chan, complete)
 			log.Print("clientmanager", client.Address)
 			clients = append(clients, client)
 
@@ -31,6 +46,10 @@ func StartClientManager(registration chan (string), stat_chan chan (Stat)) {
 			for _, client := range clients {
 				client.RequestStats <- unix
 			}
+		case c := <-complete:
+			log.Print("[cm] No more stats for ", c)
+
+			// TODO: Use this information and notify the aggregator
 		}
 	}
 }
