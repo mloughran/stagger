@@ -26,25 +26,25 @@ func StartClientManager(registration chan (string), stat_chan chan (Stat)) {
 
 	complete := make(chan CompleteMessage)
 
-	client_id := 1
+	client_id_incr := 1
 
 	for {
 		select {
 		case client_address := <-registration:
-			client := ClientRef{client_id, client_address, make(chan string), make(chan int64)}
-			client_id += 1
+			client := ClientRef{client_id_incr, client_address, make(chan string), make(chan int64)}
+			client_id_incr += 1
 			go RunClient(client, stat_chan, complete)
 			log.Print("clientmanager", client.Address)
 			clients = append(clients, client)
 
 			log.Print("Managing client: ", len(clients))
-		case ts := <-heartbeat:
+		case time := <-heartbeat:
 			log.Print("[cm] Sending request for stats")
 
 			// Send stats request to each client
-			unix := ts.Unix()
+			unix_ts := time.Unix()
 			for _, client := range clients {
-				client.RequestStats <- unix
+				client.RequestStats <- unix_ts
 			}
 		case c := <-complete:
 			log.Print("[cm] No more stats for ", c)
