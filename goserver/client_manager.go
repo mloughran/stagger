@@ -28,6 +28,8 @@ func StartClientManager(registration chan (string), stat_chan chan (Stat)) {
 
 	client_id_incr := 1
 
+	outstanding_stats := map[int64]int{}
+
 	for {
 		select {
 		case client_address := <-registration:
@@ -38,14 +40,26 @@ func StartClientManager(registration chan (string), stat_chan chan (Stat)) {
 
 			log.Print("[cm] Managing clients: ", len(clients))
 		case time := <-heartbeat:
-			log.Print("[cm] Sending request for stats")
+			if len(clients) > 0 {
+				unix_ts := time.Unix()
+				log.Print("[cm] Sending request for stats at ", unix_ts)
 
-			// Send stats request to each client
-			unix_ts := time.Unix()
-			for _, client := range clients {
-				client.RequestStats <- unix_ts
+				// Store number of clients for this stat
+				outstanding_stats[unix_ts] = len(clients)
+
+				// Send stats request to each client
+				for _, client := range clients {
+					client.RequestStats <- unix_ts
+				}
 			}
 		case c := <-complete:
+			// TODO: Handle possibility that this does not exist
+			outstanding_stats[c.Timestamp] -= 1
+
+			if outstanding_stats[c.Timestamp] == 0 {
+				delete(outstanding_stats, c.Timestamp)
+				log.Print("[cm] Stats done for ts ", c.Timestamp)
+			}
 
 			// TODO: Use this information and notify the aggregator
 		}
