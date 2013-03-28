@@ -19,7 +19,7 @@ type CompleteMessage struct {
 	Timestamp int64
 }
 
-func StartClientManager(registration chan (string), stat_chan chan (Stat), ts_complete chan (int64)) {
+func StartClientManager(registration chan (string), stat_chan chan (Stat), ts_complete chan (int64), ts_new chan (int64)) {
 	clients := make([]ClientRef, 0)
 
 	heartbeat := time.Tick(5 * time.Second)
@@ -46,6 +46,8 @@ func StartClientManager(registration chan (string), stat_chan chan (Stat), ts_co
 
 				// Store number of clients for this stat
 				outstanding_stats[unix_ts] = len(clients)
+
+				ts_new <- unix_ts
 
 				// Send stats request to each client
 				for _, client := range clients {
