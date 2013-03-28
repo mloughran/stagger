@@ -38,7 +38,6 @@ func RunZmqClient(addr string, events ZmqClientEvents) {
 	// Removing because it causes crash... (due to read goroutine)
 	// defer sock.Close()
 
-	log.Print("Connecting to ", addr)
 	sock.Connect(addr)
 
 	// These are used so that we can stop the reading goroutine - hacky...

@@ -10,11 +10,11 @@ type RegMsg struct {
 	Address string
 }
 
-func StartRegistration(reg_chan chan (string)) {
+func StartRegistration(address string, reg_chan chan (string)) {
 	pull, _ := zmq.NewSocket(zmq.PULL)
 	defer pull.Close()
-	pull.Bind("tcp://127.0.0.1:2900")
-	log.Print("Have bound")
+	pull.Bind(address)
+	log.Print("[registration] Bound to ", address)
 
 	for {
 		// Not sure if it's better to Recv or RecvBytes

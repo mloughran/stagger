@@ -11,6 +11,6 @@ type Stat struct {
 func RunAggregator(stats chan (Stat)) {
 	for {
 		s := <-stats
-		log.Print("Stat: ", s)
+		log.Print("[aggregator] Stat: ", s)
 	}
 }

@@ -3,6 +3,7 @@ package main
 import "log"
 import "strings"
 import "bytes"
+import "fmt"
 
 import msgpack "github.com/ugorji/go-msgpack"
 
@@ -46,6 +47,9 @@ func decodeStat(packed string) ProtStat {
 }
 
 func RunClient(info ClientRef, stat_chan chan (Stat), complete chan (CompleteMessage)) {
+	name := fmt.Sprintf("[client %v] ", info.Id)
+
+	log.Print(name, "Connecting to ", info.Address)
 	events := NewZmqClient(info.Address)
 
 	for {
@@ -54,7 +58,7 @@ func RunClient(info ClientRef, stat_chan chan (Stat), complete chan (CompleteMes
 		// 	log.Print("[client] Requesting stats from ", info.Address)
 		// 	events.SendMessage <- "Stats please!"
 		case ts := <-info.RequestStats:
-			log.Print("[client] Requesting stats at ", ts, " from ", info.Address)
+			log.Print(name, "Requesting stats at ", ts)
 
 			stats_req := StatsRequest{"report_all", ts}
 			var b bytes.Buffer
@@ -63,12 +67,9 @@ func RunClient(info ClientRef, stat_chan chan (Stat), complete chan (CompleteMes
 
 			events.SendMessage <- &b
 		case multipart := <-events.OnMessage:
-			log.Print("[client] Received stats")
-
 			envelope := decodeEnv(multipart.Envelope)
-			log.Print("envelope: ", envelope)
-
 			ts := envelope.Timestamp
+			log.Print(name, "Receiving stats at ts ", ts)
 
 			// Handle message parts in a goroutine
 			go func() {
@@ -76,19 +77,16 @@ func RunClient(info ClientRef, stat_chan chan (Stat), complete chan (CompleteMes
 					select {
 					case part := <-multipart.OnPart:
 						stat := decodeStat(part)
-						log.Print("[client] Stats part ", stat)
-
-						// Send the data on to the stat_channel
 						stat_chan <- Stat{ts, stat.N, stat.V}
 					case <-multipart.OnEnd:
-						log.Print("[client] End of stats stream")
+						log.Print(name, "End of stats stream")
 						complete <- CompleteMessage{info.Id, ts}
 						return
 					}
 				}
 			}()
 		case <-events.OnClose:
-			log.Print("[client] Connection to ", info.Address, " closed")
+			log.Print(name, "Connection to ", info.Address, " closed")
 			return
 		}
 	}

@@ -10,7 +10,7 @@ func main() {
 	reg_chan := make(chan string)
 	stat_chan := make(chan Stat)
 
-	go StartRegistration(reg_chan)
+	go StartRegistration("tcp://127.0.0.1:2900", reg_chan)
 
 	go StartClientManager(reg_chan, stat_chan)
 

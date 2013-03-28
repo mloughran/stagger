@@ -34,10 +34,9 @@ func StartClientManager(registration chan (string), stat_chan chan (Stat)) {
 			client := ClientRef{client_id_incr, client_address, make(chan string), make(chan int64)}
 			client_id_incr += 1
 			go RunClient(client, stat_chan, complete)
-			log.Print("clientmanager", client.Address)
 			clients = append(clients, client)
 
-			log.Print("Managing client: ", len(clients))
+			log.Print("[cm] Managing clients: ", len(clients))
 		case time := <-heartbeat:
 			log.Print("[cm] Sending request for stats")
 
@@ -47,7 +46,6 @@ func StartClientManager(registration chan (string), stat_chan chan (Stat)) {
 				client.RequestStats <- unix_ts
 			}
 		case c := <-complete:
-			log.Print("[cm] No more stats for ", c)
 
 			// TODO: Use this information and notify the aggregator
 		}
