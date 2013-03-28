@@ -19,7 +19,7 @@ type CompleteMessage struct {
 	Timestamp int64
 }
 
-func StartClientManager(registration chan (string), stat_chan chan (Stat)) {
+func StartClientManager(registration chan (string), stat_chan chan (Stat), ts_complete chan (int64)) {
 	clients := make([]ClientRef, 0)
 
 	heartbeat := time.Tick(5 * time.Second)
@@ -59,9 +59,8 @@ func StartClientManager(registration chan (string), stat_chan chan (Stat)) {
 			if outstanding_stats[c.Timestamp] == 0 {
 				delete(outstanding_stats, c.Timestamp)
 				log.Print("[cm] Stats done for ts ", c.Timestamp)
+				ts_complete <- c.Timestamp
 			}
-
-			// TODO: Use this information and notify the aggregator
 		}
 	}
 }

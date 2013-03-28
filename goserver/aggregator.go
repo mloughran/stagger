@@ -8,9 +8,13 @@ type Stat struct {
 	Value     int
 }
 
-func RunAggregator(stats chan (Stat)) {
+func RunAggregator(stats chan (Stat), ts_complete chan (int64)) {
 	for {
-		s := <-stats
-		log.Print("[aggregator] Stat: ", s)
+		select {
+		case s := <-stats:
+			log.Print("[aggregator] Stat: ", s)
+		case ts := <-ts_complete:
+			log.Print("[aggregator] Complete for ts ", ts)
+		}
 	}
 }
