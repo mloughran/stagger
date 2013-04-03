@@ -8,15 +8,15 @@ import _ "net/http/pprof"
 
 func main() {
 	reg_chan := make(chan string)
-	stat_chan := make(chan Stat)
+	stats_channels := NewStatsChannels()
 	ts_complete := make(chan int64)
 	ts_new := make(chan int64)
 
 	go StartRegistration("tcp://127.0.0.1:2900", reg_chan)
 
-	go StartClientManager(reg_chan, stat_chan, ts_complete, ts_new)
+	go StartClientManager(reg_chan, stats_channels, ts_complete, ts_new)
 
-	go RunAggregator(stat_chan, ts_complete, ts_new)
+	go RunAggregator(stats_channels, ts_complete, ts_new)
 
 	// Just used for debugging
 	go log.Fatal(http.ListenAndServe(":8080", nil))

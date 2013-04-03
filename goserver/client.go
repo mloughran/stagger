@@ -16,6 +16,7 @@ type ProtStat struct {
 	N string
 	T string
 	V float64
+	D []float64
 }
 
 type StatsRequest struct {
@@ -46,7 +47,7 @@ func decodeStat(packed string) ProtStat {
 	return stat
 }
 
-func RunClient(info ClientRef, stat_chan chan (Stat), complete chan (CompleteMessage)) {
+func RunClient(info ClientRef, stats_channels StatsChannels, complete chan (CompleteMessage)) {
 	name := fmt.Sprintf("[client %v] ", info.Id)
 
 	log.Print(name, "Connecting to ", info.Address)
@@ -77,7 +78,15 @@ func RunClient(info ClientRef, stat_chan chan (Stat), complete chan (CompleteMes
 					select {
 					case part := <-multipart.OnPart:
 						stat := decodeStat(part)
-						stat_chan <- Stat{ts, stat.N, stat.V}
+						switch stat.T {
+						case "c":
+							stats_channels.CounterStats <- CounterStat{&StatIdentifier{ts, stat.N}, stat.V}
+						case "vd":
+							stats_channels.DistStats <- DistStat{&StatIdentifier{ts, stat.N}, stat.D}
+						default:
+							log.Print(name, "Invalid type ", stat.T)
+						}
+
 					case <-multipart.OnEnd:
 						log.Print(name, "End of stats stream")
 						complete <- CompleteMessage{info.Id, ts}
@@ -88,6 +97,7 @@ func RunClient(info ClientRef, stat_chan chan (Stat), complete chan (CompleteMes
 		case <-events.OnClose:
 			log.Print(name, "Connection to ", info.Address, " closed")
 			return
+			// TODO: Notify the client manager
 		}
 	}
 }

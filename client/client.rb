@@ -26,11 +26,17 @@ EM.run {
       
       part1 = {
         N: "connections",
-        T: "value",
-        V: 23,
+        T: "c",
+        V: 23.0,
       }
 
-      me.send_msg(*[envelope, part1].map { |p| MessagePack.pack(p) })
+      part2 = {
+        N: "api_latency",
+        T: "vd",
+        D: [3,1,5,9,35].map(&:to_f) # weight, min, max, sx, sxx
+      }
+
+      me.send_msg(*[envelope, part1, part2].map { |p| MessagePack.pack(p) })
     else
       p ["Unknown command", command]
     end
