@@ -15,7 +15,7 @@ type StatsEnvelope struct {
 type ProtStat struct {
 	N string
 	T string
-	V int
+	V float64
 }
 
 type StatsRequest struct {
