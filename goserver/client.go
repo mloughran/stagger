@@ -78,11 +78,14 @@ func RunClient(info ClientRef, stats_channels StatsChannels, complete chan (Comp
 					select {
 					case part := <-multipart.OnPart:
 						stat := decodeStat(part)
+						id := StatIdentifier{ts, stat.N}
 						switch stat.T {
 						case "c":
-							stats_channels.CounterStats <- CounterStat{&StatIdentifier{ts, stat.N}, stat.V}
+							stats_channels.CounterStats <- CounterStat{&id, stat.V}
+						case "v":
+							stats_channels.ValueStats <- ValueStat{&id, stat.V}
 						case "vd":
-							stats_channels.DistStats <- DistStat{&StatIdentifier{ts, stat.N}, stat.D}
+							stats_channels.DistStats <- DistStat{&id, stat.D}
 						default:
 							log.Print(name, "Invalid type ", stat.T)
 						}

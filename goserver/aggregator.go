@@ -62,6 +62,14 @@ func RunAggregator(stats StatsChannels, ts_complete chan (int64), ts_new chan (i
 		case s := <-stats.CounterStats:
 			log.Print("[aggregator] Stat: ", s)
 			aggregates[s.Timestamp].Counters[s.Name] += s.Count
+		case s := <-stats.ValueStats:
+			log.Print("[aggregator] Stat: ", s)
+			if _, present := aggregates[s.Timestamp].Dists[s.Name]; present {
+				dist := aggregates[s.Timestamp].Dists[s.Name]
+				dist.AddEntry(s.Value)
+			} else {
+				aggregates[s.Timestamp].Dists[s.Name] = NewDistFromValue(s.Value)
+			}
 		case s := <-stats.DistStats:
 			log.Print("[aggregator] Stat: ", s)
 			dist := ContstructDist(s.Dist)
