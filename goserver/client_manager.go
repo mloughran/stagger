@@ -9,7 +9,6 @@ import "time"
 
 type ClientRef struct {
 	Id           int
-	Address      string
 	Mailbox      chan (string)
 	RequestStats chan (int64) // Request stats from a client for some ts
 }
@@ -19,7 +18,7 @@ type CompleteMessage struct {
 	Timestamp int64
 }
 
-func StartClientManager(registration chan (string), stats_channels StatsChannels, ts_complete chan (int64), ts_new chan (int64)) {
+func StartClientManager(registration chan (Registration), stats_channels StatsChannels, ts_complete chan (int64), ts_new chan (int64)) {
 	clients := make([]ClientRef, 0)
 
 	heartbeat := time.Tick(5 * time.Second)
@@ -32,10 +31,10 @@ func StartClientManager(registration chan (string), stats_channels StatsChannels
 
 	for {
 		select {
-		case client_address := <-registration:
-			client := ClientRef{client_id_incr, client_address, make(chan string), make(chan int64)}
+		case reg := <-registration:
+			client := ClientRef{client_id_incr, make(chan string), make(chan int64)}
 			client_id_incr += 1
-			go RunClient(client, stats_channels, complete)
+			go RunClient(reg, client, stats_channels, complete)
 			clients = append(clients, client)
 
 			log.Print("[cm] Managing clients: ", len(clients))

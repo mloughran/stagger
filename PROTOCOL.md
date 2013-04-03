@@ -3,6 +3,9 @@
 On startup, clients bind a ZMQ PAIR socket which will be used to respond to stats requests. They then send this address string to the stats server via a ZMQ push socket. The address may be an ipc or tcp socket.
 
     Address: ipc:///some/unix/socket
+    Name: client provided name (optional)
+
+The name when logging client actions.
 
 After the initial registration this push socket MAY be closed.
 

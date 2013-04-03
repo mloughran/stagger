@@ -7,7 +7,7 @@ import "net/http"
 import _ "net/http/pprof"
 
 func main() {
-	reg_chan := make(chan string)
+	reg_chan := make(chan Registration)
 	stats_channels := NewStatsChannels()
 	ts_complete := make(chan int64)
 	ts_new := make(chan int64)

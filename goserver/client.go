@@ -47,11 +47,11 @@ func decodeStat(packed string) ProtStat {
 	return stat
 }
 
-func RunClient(info ClientRef, stats_channels StatsChannels, complete chan (CompleteMessage)) {
-	name := fmt.Sprintf("[client %v] ", info.Id)
+func RunClient(reg Registration, info ClientRef, stats_channels StatsChannels, complete chan (CompleteMessage)) {
+	name := fmt.Sprintf("[client %v-%v] ", info.Id, reg.Name)
 
-	log.Print(name, "Connecting to ", info.Address)
-	events := NewZmqClient(info.Address)
+	log.Print(name, "Connecting to ", reg.Address)
+	events := NewZmqClient(reg.Address)
 
 	for {
 		select {
@@ -98,7 +98,7 @@ func RunClient(info ClientRef, stats_channels StatsChannels, complete chan (Comp
 				}
 			}()
 		case <-events.OnClose:
-			log.Print(name, "Connection to ", info.Address, " closed")
+			log.Print(name, "Connection to ", reg.Address, " closed")
 			return
 			// TODO: Notify the client manager
 		}

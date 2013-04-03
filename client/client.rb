@@ -49,6 +49,7 @@ EM.run {
   }
   
   reg.send_msg(MessagePack.pack({
-    "Address" => mysock
+    "Name" => "ruby#{rand(10)}",
+    "Address" => mysock,
   }))
 }

@@ -7,10 +7,14 @@ import msgpack "github.com/ugorji/go-msgpack"
 import zmq "github.com/pebbe/zmq3"
 
 type RegMsg struct {
+	Name    string
 	Address string
 }
 
-func StartRegistration(address string, reg_chan chan (string)) {
+// Alias the type to decouple internals from the ZMQ message
+type Registration RegMsg
+
+func StartRegistration(address string, reg_chan chan (Registration)) {
 	pull, _ := zmq.NewSocket(zmq.PULL)
 	defer pull.Close()
 	pull.Bind(address)
@@ -33,6 +37,6 @@ func StartRegistration(address string, reg_chan chan (string)) {
 			return
 		}
 
-		reg_chan <- resp.Address
+		reg_chan <- Registration(resp)
 	}
 }
