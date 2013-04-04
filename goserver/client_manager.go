@@ -18,10 +18,28 @@ type CompleteMessage struct {
 	Timestamp int64
 }
 
+// Like a time.Tick, but anchored at time modulo boundary
+func AnchoredTick(period time.Duration) chan (time.Time) {
+	ticks := make(chan time.Time)
+	go func() {
+		// Wait till the end of the current period
+		elapsed := time.Now().UnixNano() % period.Nanoseconds()
+		now := <-time.After(time.Duration(period.Nanoseconds() - elapsed))
+
+		// Use Ticker to tick regularly
+		tick_chan := time.Tick(period)
+		ticks <- now
+		for {
+			ticks <- <-tick_chan
+		}
+	}()
+	return ticks
+}
+
 func StartClientManager(registration chan (Registration), stats_channels StatsChannels, ts_complete chan (int64), ts_new chan (int64)) {
 	clients := make([]ClientRef, 0)
 
-	heartbeat := time.Tick(5 * time.Second)
+	heartbeat := AnchoredTick(5 * time.Second)
 
 	complete := make(chan CompleteMessage)
 
