@@ -41,24 +41,26 @@ func NewStatsChannels() StatsChannels {
 }
 
 type TimestampedStats struct {
-	Dists    map[string]*Dist
-	Counters map[string]float64
+	Timestamp int64
+	Dists     map[string]*Dist
+	Counters  map[string]float64
 }
 
-func NewTimestampedStats() TimestampedStats {
-	return TimestampedStats{
+func NewTimestampedStats(ts int64) *TimestampedStats {
+	return &TimestampedStats{
+		ts,
 		map[string]*Dist{},
 		map[string]float64{},
 	}
 }
 
-func RunAggregator(stats StatsChannels, ts_complete chan (int64), ts_new chan (int64)) {
-	aggregates := map[int64]TimestampedStats{}
+func RunAggregator(stats StatsChannels, ts_complete chan (int64), ts_new chan (int64), output_chan chan (*TimestampedStats)) {
+	aggregates := map[int64]*TimestampedStats{}
 
 	for {
 		select {
 		case ts := <-ts_new:
-			aggregates[ts] = NewTimestampedStats()
+			aggregates[ts] = NewTimestampedStats(ts)
 		case s := <-stats.CounterStats:
 			log.Print("[aggregator] Stat: ", s)
 			aggregates[s.Timestamp].Counters[s.Name] += s.Count
@@ -80,15 +82,8 @@ func RunAggregator(stats StatsChannels, ts_complete chan (int64), ts_new chan (i
 				aggregates[s.Timestamp].Dists[s.Name] = dist
 			}
 		case ts := <-ts_complete:
-			log.Print("[aggregator] Complete for ts ", ts)
-			log.Print("[aggregator] Final data: ", aggregates[ts])
-			for key, value := range aggregates[ts].Counters {
-				log.Printf("[aggregator] %v: %v", key, value)
-			}
-			for key, value := range aggregates[ts].Dists {
-				log.Printf("[aggregator] %v: %v", key, value)
-			}
-			// Delete the data, we may now want to do this immediately?
+			log.Print("[aggregator] Finished aggregating data for timestamp: ", ts)
+			output_chan <- aggregates[ts]
 			delete(aggregates, ts)
 		}
 	}

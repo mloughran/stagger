@@ -16,7 +16,11 @@ func main() {
 
 	go StartClientManager(reg_chan, stats_channels, ts_complete, ts_new)
 
-	go RunAggregator(stats_channels, ts_complete, ts_new)
+	output_chan := make(chan *TimestampedStats)
+
+	go RunAggregator(stats_channels, ts_complete, ts_new, output_chan)
+
+	go RunOutput(output_chan)
 
 	// Just used for debugging
 	go log.Fatal(http.ListenAndServe(":8080", nil))
