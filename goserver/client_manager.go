@@ -12,6 +12,7 @@ type ClientRef struct {
 	RequestStats chan (int64) // Request stats from a client for some ts
 }
 
+// Sent by clients when they have finished receiving data for a timestamp
 type CompleteMessage struct {
 	ClientId  int
 	Timestamp int64
@@ -36,25 +37,33 @@ func AnchoredTick(period time.Duration) chan (time.Time) {
 }
 
 func StartClientManager(registration chan (Registration), stats_channels StatsChannels, ts_complete chan (int64), ts_new chan (int64)) {
-	clients := make([]ClientRef, 0)
+	clients := make(map[int]ClientRef)
 
 	heartbeat := AnchoredTick(5 * time.Second)
 
 	complete := make(chan CompleteMessage)
 
-	client_id_incr := 1
+	// Clients send a message on this channel when they go away
+	on_client_gone := make(chan int)
+
+	client_id_incr := 0
 
 	outstanding_stats := map[int64]int{}
 
 	for {
 		select {
 		case reg := <-registration:
-			client := ClientRef{client_id_incr, make(chan int64)}
 			client_id_incr += 1
-			go RunClient(reg, client, stats_channels, complete)
-			clients = append(clients, client)
 
-			log.Print("[cm] Managing clients: ", len(clients))
+			client := ClientRef{client_id_incr, make(chan int64)}
+			go RunClient(reg, client, stats_channels, complete, on_client_gone)
+			clients[client_id_incr] = client
+			log.Printf("[cm] Added client %v (count: %v)", client_id_incr, len(clients))
+		case id := <-on_client_gone:
+			delete(clients, id)
+			log.Printf("[cm] Removed client %v (count: %v)", id, len(clients))
+			// TODO: Should also remove this client from the list of unreported
+			// clients, but this requires using more than a simple count
 		case time := <-heartbeat:
 			if len(clients) > 0 {
 				unix_ts := time.Unix()

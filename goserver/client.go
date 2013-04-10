@@ -47,7 +47,7 @@ func decodeStat(packed string) ProtStat {
 	return stat
 }
 
-func RunClient(reg Registration, info ClientRef, stats_channels StatsChannels, complete chan (CompleteMessage)) {
+func RunClient(reg Registration, info ClientRef, stats_channels StatsChannels, complete chan (CompleteMessage), send_gone chan (int)) {
 	name := fmt.Sprintf("[client %v-%v] ", info.Id, reg.Name)
 
 	log.Print(name, "Connecting to ", reg.Address)
@@ -96,8 +96,8 @@ func RunClient(reg Registration, info ClientRef, stats_channels StatsChannels, c
 			}()
 		case <-events.OnClose:
 			log.Print(name, "Connection to ", reg.Address, " closed")
+			send_gone <- info.Id
 			return
-			// TODO: Notify the client manager
 		}
 	}
 }

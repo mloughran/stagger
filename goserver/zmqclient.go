@@ -87,7 +87,7 @@ func RunZmqClient(addr string, events ZmqClientEvents) {
 		if _, err := sock.SendBytes(msg.Bytes(), zmq.DONTWAIT); err != nil {
 			log.Print("Closing client ", addr, " after ", err)
 			closed = true
-
+			// OnClose event will be sent by defer
 			return
 		}
 	}
