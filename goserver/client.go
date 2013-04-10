@@ -48,7 +48,7 @@ func decodeStat(packed string) ProtStat {
 }
 
 func RunClient(reg Registration, info ClientRef, stats_channels StatsChannels, complete chan (CompleteMessage), send_gone chan (int)) {
-	name := fmt.Sprintf("[client %v-%v] ", info.Id, reg.Name)
+	name := fmt.Sprintf("[client:%v-%v]", info.Id, reg.Name)
 
 	log.Print(name, "Connecting to ", reg.Address)
 	events := NewZmqClient(reg.Address)
@@ -56,8 +56,6 @@ func RunClient(reg Registration, info ClientRef, stats_channels StatsChannels, c
 	for {
 		select {
 		case ts := <-info.RequestStats:
-			log.Print(name, "Requesting stats at ", ts)
-
 			stats_req := StatsRequest{"report_all", ts}
 			var b bytes.Buffer
 			encoder := msgpack.NewEncoder(&b)
@@ -67,7 +65,7 @@ func RunClient(reg Registration, info ClientRef, stats_channels StatsChannels, c
 		case multipart := <-events.OnMessage:
 			envelope := decodeEnv(multipart.Envelope)
 			ts := envelope.Timestamp
-			log.Print(name, "Receiving stats at ts ", ts)
+			log.Printf("%v Receiving for ts:%v [start]", name, ts)
 
 			// Handle message parts in a goroutine
 			go func() {
@@ -88,7 +86,7 @@ func RunClient(reg Registration, info ClientRef, stats_channels StatsChannels, c
 						}
 
 					case <-multipart.OnEnd:
-						log.Print(name, "End of stats stream")
+						log.Printf("%v Receiving for ts:%v [end]", name, ts)
 						complete <- CompleteMessage{info.Id, ts}
 						return
 					}
