@@ -9,7 +9,6 @@ import "time"
 
 type ClientRef struct {
 	Id           int
-	Mailbox      chan (string)
 	RequestStats chan (int64) // Request stats from a client for some ts
 }
 
@@ -50,7 +49,7 @@ func StartClientManager(registration chan (Registration), stats_channels StatsCh
 	for {
 		select {
 		case reg := <-registration:
-			client := ClientRef{client_id_incr, make(chan string), make(chan int64)}
+			client := ClientRef{client_id_incr, make(chan int64)}
 			client_id_incr += 1
 			go RunClient(reg, client, stats_channels, complete)
 			clients = append(clients, client)

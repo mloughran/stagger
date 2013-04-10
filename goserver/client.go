@@ -55,9 +55,6 @@ func RunClient(reg Registration, info ClientRef, stats_channels StatsChannels, c
 
 	for {
 		select {
-		// case <-info.Mailbox:
-		// 	log.Print("[client] Requesting stats from ", info.Address)
-		// 	events.SendMessage <- "Stats please!"
 		case ts := <-info.RequestStats:
 			log.Print(name, "Requesting stats at ", ts)
 
