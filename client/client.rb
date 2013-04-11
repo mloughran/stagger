@@ -42,7 +42,9 @@ EM.run {
         V: 9.0,
       }
 
-      me.send_msg(*[envelope, part1, part2, part3].map { |p| MessagePack.pack(p) })
+      EM.add_timer(1) {
+        me.send_msg(*[envelope, part1, part2, part3].map { |p| MessagePack.pack(p) })
+      }
     else
       p ["Unknown command", command]
     end

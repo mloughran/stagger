@@ -59,31 +59,39 @@ func (self Aggregate) AddTimestamp(ts int64) {
 }
 
 func (self Aggregate) FinishTimestamp(ts int64) *TimestampedStats {
-	data := self[ts]
-	delete(self, ts)
-	return data
+	if agg, ts_exists := self[ts]; ts_exists {
+		delete(self, ts)
+		return agg
+	}
+	return nil
 }
 
 func (self Aggregate) AddCounter(s CounterStat) {
-	self[s.Timestamp].Counters[s.Name] += s.Count
+	if agg, ts_exists := self[s.Timestamp]; ts_exists {
+		agg.Counters[s.Name] += s.Count
+	}
 }
 
 func (self Aggregate) AddValue(s ValueStat) {
-	if _, present := self[s.Timestamp].Dists[s.Name]; present {
-		dist := self[s.Timestamp].Dists[s.Name]
-		dist.AddEntry(s.Value)
-	} else {
-		self[s.Timestamp].Dists[s.Name] = NewDistFromValue(s.Value)
+	if agg, ts_exists := self[s.Timestamp]; ts_exists {
+		if _, present := agg.Dists[s.Name]; present {
+			dist := agg.Dists[s.Name]
+			dist.AddEntry(s.Value)
+		} else {
+			agg.Dists[s.Name] = NewDistFromValue(s.Value)
+		}
 	}
 }
 
 func (self Aggregate) AddDist(s DistStat) {
-	dist := ContstructDist(s.Dist)
-	if _, present := self[s.Timestamp].Dists[s.Name]; present {
-		dist := self[s.Timestamp].Dists[s.Name]
-		dist.Add(dist)
-	} else {
-		self[s.Timestamp].Dists[s.Name] = dist
+	if agg, ts_exists := self[s.Timestamp]; ts_exists {
+		dist := ContstructDist(s.Dist)
+		if _, present := agg.Dists[s.Name]; present {
+			dist := agg.Dists[s.Name]
+			dist.Add(dist)
+		} else {
+			agg.Dists[s.Name] = dist
+		}
 	}
 }
 
@@ -101,9 +109,10 @@ func RunAggregator(stats StatsChannels, ts_complete chan (int64), ts_new chan (i
 		case s := <-stats.DistStats:
 			aggregate.AddDist(s)
 		case ts := <-ts_complete:
-			data := aggregate.FinishTimestamp(ts)
-			log.Print("[aggregator] Finished aggregating data for timestamp: ", ts)
-			output_chan <- data
+			if agg := aggregate.FinishTimestamp(ts); agg != nil {
+				log.Print("[aggregator] Finished aggregating data for timestamp: ", ts)
+				output_chan <- agg
+			}
 		}
 	}
 }
