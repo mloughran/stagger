@@ -52,34 +52,58 @@ func NewTimestampedStats(ts int64) *TimestampedStats {
 	}
 }
 
+type Aggregate map[int64]*TimestampedStats
+
+func (self Aggregate) AddTimestamp(ts int64) {
+	self[ts] = NewTimestampedStats(ts)
+}
+
+func (self Aggregate) FinishTimestamp(ts int64) *TimestampedStats {
+	data := self[ts]
+	delete(self, ts)
+	return data
+}
+
+func (self Aggregate) AddCounter(s CounterStat) {
+	self[s.Timestamp].Counters[s.Name] += s.Count
+}
+
+func (self Aggregate) AddValue(s ValueStat) {
+	if _, present := self[s.Timestamp].Dists[s.Name]; present {
+		dist := self[s.Timestamp].Dists[s.Name]
+		dist.AddEntry(s.Value)
+	} else {
+		self[s.Timestamp].Dists[s.Name] = NewDistFromValue(s.Value)
+	}
+}
+
+func (self Aggregate) AddDist(s DistStat) {
+	dist := ContstructDist(s.Dist)
+	if _, present := self[s.Timestamp].Dists[s.Name]; present {
+		dist := self[s.Timestamp].Dists[s.Name]
+		dist.Add(dist)
+	} else {
+		self[s.Timestamp].Dists[s.Name] = dist
+	}
+}
+
 func RunAggregator(stats StatsChannels, ts_complete chan (int64), ts_new chan (int64), output_chan chan (*TimestampedStats)) {
-	aggregates := map[int64]*TimestampedStats{}
+	aggregate := Aggregate{}
 
 	for {
 		select {
 		case ts := <-ts_new:
-			aggregates[ts] = NewTimestampedStats(ts)
+			aggregate.AddTimestamp(ts)
 		case s := <-stats.CounterStats:
-			aggregates[s.Timestamp].Counters[s.Name] += s.Count
+			aggregate.AddCounter(s)
 		case s := <-stats.ValueStats:
-			if _, present := aggregates[s.Timestamp].Dists[s.Name]; present {
-				dist := aggregates[s.Timestamp].Dists[s.Name]
-				dist.AddEntry(s.Value)
-			} else {
-				aggregates[s.Timestamp].Dists[s.Name] = NewDistFromValue(s.Value)
-			}
+			aggregate.AddValue(s)
 		case s := <-stats.DistStats:
-			dist := ContstructDist(s.Dist)
-			if _, present := aggregates[s.Timestamp].Dists[s.Name]; present {
-				dist := aggregates[s.Timestamp].Dists[s.Name]
-				dist.Add(dist)
-			} else {
-				aggregates[s.Timestamp].Dists[s.Name] = dist
-			}
+			aggregate.AddDist(s)
 		case ts := <-ts_complete:
+			data := aggregate.FinishTimestamp(ts)
 			log.Print("[aggregator] Finished aggregating data for timestamp: ", ts)
-			output_chan <- aggregates[ts]
-			delete(aggregates, ts)
+			output_chan <- data
 		}
 	}
 }
