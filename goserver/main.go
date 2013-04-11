@@ -1,10 +1,12 @@
 package main
 
-import "log"
-import "os"
-import "os/signal"
-import "net/http"
-import _ "net/http/pprof"
+import (
+	"log"
+	"net/http"
+	_ "net/http/pprof"
+	"os"
+	"os/signal"
+)
 
 func main() {
 	reg_chan := make(chan Registration)

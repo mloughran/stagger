@@ -4,8 +4,10 @@
 
 package main
 
-import "log"
-import "time"
+import (
+	"log"
+	"time"
+)
 
 type ClientRef struct {
 	Id           int

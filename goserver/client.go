@@ -1,9 +1,11 @@
 package main
 
-import "log"
-import "strings"
-import "bytes"
-import "fmt"
+import (
+	"bytes"
+	"fmt"
+	"log"
+	"strings"
+)
 
 import msgpack "github.com/ugorji/go-msgpack"
 

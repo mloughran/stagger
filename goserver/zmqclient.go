@@ -1,9 +1,10 @@
 package main
 
-import "log"
-import "bytes"
-
-import zmq "github.com/pebbe/zmq3"
+import (
+	"bytes"
+	zmq "github.com/pebbe/zmq3"
+	"log"
+)
 
 type ZmqClientEvents struct {
 	OnMessage   chan ZMQMultipart

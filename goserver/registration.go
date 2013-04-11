@@ -1,10 +1,11 @@
 package main
 
-import "log"
-import "strings"
-
-import msgpack "github.com/ugorji/go-msgpack"
-import zmq "github.com/pebbe/zmq3"
+import (
+	zmq "github.com/pebbe/zmq3"
+	msgpack "github.com/ugorji/go-msgpack"
+	"log"
+	"strings"
+)
 
 type RegMsg struct {
 	Name    string
