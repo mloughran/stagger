@@ -63,7 +63,7 @@ func RunClient(reg Registration, info ClientRef, stats_channels StatsChannels, c
 			encoder := msgpack.NewEncoder(&b)
 			encoder.Encode(stats_req)
 
-			events.SendMessage <- &b
+			events.SendMessage <- b.Bytes()
 		case multipart := <-events.OnMessage:
 			envelope := decodeEnv(multipart.Envelope)
 			ts := envelope.Timestamp
