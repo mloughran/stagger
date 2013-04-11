@@ -19,9 +19,7 @@ func RunOutput(complete_chan chan (*TimestampedStats)) {
 
 	pub.Bind("tcp://*:5563")
 
-	for {
-		stats := <-complete_chan
-
+	for stats := range complete_chan {
 		log.Printf("[output] Data for ts %v", stats.Timestamp)
 		for key, value := range stats.Counters {
 			log.Printf("[output] %v: %v", key, value)
