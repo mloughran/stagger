@@ -52,6 +52,9 @@ func StartClientManager(registration chan (Registration), stats_channels StatsCh
 
 	outstanding_stats := map[int64]int{}
 
+	// Notification on timeout for receiving data for a timestamp
+	on_timeout := make(chan int64)
+
 	for {
 		select {
 		case reg := <-registration:
@@ -66,20 +69,31 @@ func StartClientManager(registration chan (Registration), stats_channels StatsCh
 			log.Printf("[cm] Removed client %v (count: %v)", id, len(clients))
 			// TODO: Should also remove this client from the list of unreported
 			// clients, but this requires using more than a simple count
-		case time := <-heartbeat:
+		case now := <-heartbeat:
 			if len(clients) > 0 {
-				unix_ts := time.Unix()
-				log.Print("[cm] Sending request for stats at ", unix_ts)
+				ts := now.Unix()
+				log.Print("[cm] Sending request for stats at ", ts)
 
 				// Store number of clients for this stat
-				outstanding_stats[unix_ts] = len(clients)
+				outstanding_stats[ts] = len(clients)
 
-				ts_new <- unix_ts
+				ts_new <- ts
 
 				// Send stats request to each client
 				for _, client := range clients {
-					client.RequestStats <- unix_ts
+					client.RequestStats <- ts
 				}
+
+				// Setup timeout to receive all the data
+				go func() {
+					<-time.After(3 * time.Second)
+					on_timeout <- ts
+				}()
+			}
+		case ts := <-on_timeout:
+			if remaining, present := outstanding_stats[ts]; present {
+				log.Printf("[cm] Timeout exceeded for receiving stats for ts %v, %v clients yet to report", ts, remaining)
+				ts_complete <- ts // TODO: Notify that it wasn't clean
 			}
 		case c := <-complete:
 			// TODO: Handle possibility that this does not exist
