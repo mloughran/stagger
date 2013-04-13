@@ -66,7 +66,11 @@ func RunZmqClient(addr string, events ZmqClientEvents) {
 					multipart = ZMQMultipart{s, make(chan string), make(chan bool)}
 					events.OnMessage <- multipart
 				} else {
-					multipart.OnPart <- s
+					// Convenience so you can send an empty last message to close (the
+					// empty message will be ignored), not entirely sure about this
+					if len(s) > 0 {
+						multipart.OnPart <- s
+					}
 				}
 
 				if more, _ = sock.GetRcvmore(); more == false {
