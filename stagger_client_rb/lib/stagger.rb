@@ -32,11 +32,17 @@ module Stagger
       @pair.on(:message, &method(:command))
 
       @count_callbacks = {}
+      @value_callbacks = {}
     end
 
     def count(name, &block)
       raise "Already registered #{name}" if @count_callbacks[name]
       @count_callbacks[name] = block
+    end
+
+    def value(name, &block)
+      raise "Already registered #{name}" if @value_callbacks[name]
+      @value_callbacks[name] = block
     end
 
     private
@@ -59,11 +65,23 @@ module Stagger
         @pair.socket.send_string(envelope, ZMQ::NOBLOCK | ZMQ::SNDMORE)
 
         @count_callbacks.each do |name, cb|
-          value = cb.call.to_f
+          value = cb.call
+          next if value == 0
 
           msg = MessagePack.pack({
             N: name,
             T: "c",
+            V: value.to_f, # Currently protocol requires floats...
+          })
+          @pair.socket.send_string(msg, ZMQ::NOBLOCK | ZMQ::SNDMORE)
+        end
+
+        @value_callbacks.each do |name, cb|
+          value = cb.call.to_f
+
+          msg = MessagePack.pack({
+            N: name,
+            T: "v",
             V: value,
           })
           @pair.socket.send_string(msg, ZMQ::NOBLOCK | ZMQ::SNDMORE)
