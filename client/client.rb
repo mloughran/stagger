@@ -5,7 +5,7 @@ zmq = EM::ZeroMQ::Context.new(1)
 
 EM.run {
   reg = zmq.socket(ZMQ::PUSH)
-  reg.connect("tcp://127.0.0.1:2900")
+  reg.connect("tcp://127.0.0.1:5867")
   
   me = zmq.socket(ZMQ::PAIR)
   # TODO: Should use /var/run or something - how do permissions work there?

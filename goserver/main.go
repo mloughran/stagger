@@ -14,7 +14,7 @@ func main() {
 	ts_complete := make(chan int64)
 	ts_new := make(chan int64)
 
-	go StartRegistration("tcp://127.0.0.1:2900", reg_chan)
+	go StartRegistration("tcp://127.0.0.1:5867", reg_chan)
 
 	go StartClientManager(reg_chan, stats_channels, ts_complete, ts_new)
 
