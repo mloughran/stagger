@@ -1,4 +1,6 @@
-require_relative './lib/stagger'
+$:.unshift(File.expand_path("../lib", __FILE__))
+
+require 'stagger'
 
 EM.run {
   s = Stagger::Client.new

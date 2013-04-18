@@ -1,5 +1,4 @@
 require 'em-zeromq'
-require 'msgpack'
 
 module Stagger
   class << self
@@ -40,21 +39,9 @@ module Stagger
   class Client
     # Only 279 google results for "port 5867" :)
     def initialize(reg_address = "tcp://127.0.0.1:5867")
-      # TODO: Should use /var/run or something?
-      # This should be configurable?
-      mysock = "ipc:///tmp/stagger_#{Process.pid}.zmq"
+      @zmq_client = ZMQClient.new(reg_address)
 
-      reg = Stagger.zmq.socket(ZMQ::PUSH)
-      reg.connect(reg_address)
-      reg.send_msg(MessagePack.pack({
-        "Name" => "ruby#{rand(10)}", # TODO
-        "Address" => mysock,
-      }))
-
-      @pair = Stagger.zmq.socket(ZMQ::PAIR)
-      @pair.bind(mysock)
-
-      @pair.on(:message, &method(:command))
+      @zmq_client.on(:command, &method(:command))
 
       @count_callbacks = {}
       @value_callbacks = {}
@@ -83,70 +70,60 @@ module Stagger
 
     private
 
-    def command(part)
-      e = MessagePack.unpack(part.copy_out_string)
-      p e
-
-      case (command = e["Method"])
+    def command(method, params)
+      case method
       when "report_all"
-        envelope = {
+        @zmq_client.send({
           Method: "stats_reply",
-          Timestamp: e["Timestamp"],
-        }
-
-        envelope = MessagePack.pack({
-          Method: "stats_reply",
-          Timestamp: e["Timestamp"],
-        })
-        @pair.socket.send_string(envelope, ZMQ::NOBLOCK | ZMQ::SNDMORE)
+          Timestamp: params["Timestamp"],
+        }, false)
 
         @count_callbacks.each do |name, cb|
           value = cb.call
           next if value == 0
 
-          msg = MessagePack.pack({
+          @zmq_client.send({
             N: name.to_s,
             T: "c",
             V: value.to_f, # Currently protocol requires floats...
-          })
-          @pair.socket.send_string(msg, ZMQ::NOBLOCK | ZMQ::SNDMORE)
+          }, false)
         end
 
         @counters.each do |name, count|
-          msg = MessagePack.pack({
+          @zmq_client.send({
             N: name.to_s,
             T: "c",
             V: count.to_f, # Currently protocol requires floats...
-          })
-          @pair.socket.send_string(msg, ZMQ::NOBLOCK | ZMQ::SNDMORE)
+          }, false)
         end
         @counters = Hash.new { |h,k| h[k] = 0 }
 
         @value_callbacks.each do |name, cb|
           value = cb.call.to_f
 
-          msg = MessagePack.pack({
+          @zmq_client.send({
             N: name.to_s,
             T: "v",
             V: value,
-          })
-          @pair.socket.send_string(msg, ZMQ::NOBLOCK | ZMQ::SNDMORE)
+          }, false)
         end
 
         @values.each do |name, value_dist|
-          msg = MessagePack.pack({
+          @zmq_client.send({
             N: name.to_s,
             T: "vd",
             D: value_dist.to_a.map(&:to_f) # weight, min, max, sx, sxx
-          })
-          @pair.socket.send_string(msg, ZMQ::NOBLOCK | ZMQ::SNDMORE)
+          }, false)
         end
         @values = Hash.new { |h,k| h[k] = Distribution.new }
 
-        @pair.socket.send_string("", ZMQ::NOBLOCK)
+        @zmq_client.send(nil)
       else
-        p ["Unknown command", command]
+        p ["Unknown command", method]
       end
     end
   end
 end
+
+require 'stagger/event_emitter'
+require 'stagger/zmq_client'
