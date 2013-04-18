@@ -39,9 +39,7 @@ module Stagger
   class Client
     # Only 279 google results for "port 5867" :)
     def initialize(reg_address = "tcp://127.0.0.1:5867")
-      @zmq_client = ZMQClient.new(reg_address)
-
-      @zmq_client.on(:command, &method(:command))
+      register(reg_address)
 
       @count_callbacks = {}
       @value_callbacks = {}
@@ -69,6 +67,15 @@ module Stagger
     end
 
     private
+
+    def register(reg_address)
+      @zmq_client = ZMQClient.new(reg_address)
+      @zmq_client.on(:command, &method(:command))
+      @zmq_client.on(:terminated) {
+        puts "Connection to client lost, reregistering"
+        register(reg_address)
+      }
+    end
 
     def command(method, params)
       case method
