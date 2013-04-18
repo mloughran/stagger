@@ -65,7 +65,10 @@ func RunZmqClient(addr string, events ZmqClientEvents) {
 			// We expect an error when the rcv timeout is exceeded
 			s, err := sock.Recv(0)
 			if err == nil {
-				if multipart_in_progress == false {
+				if s == "ping" {
+					debug.Print("Replying to ping")
+					events.SendMessage <- ZMQMessage{"pong", []byte("")}
+				} else if multipart_in_progress == false {
 					multipart_in_progress = true
 					multipart = ZMQMultipart{s, make(chan string), make(chan bool)}
 					events.OnMessage <- multipart
@@ -75,11 +78,11 @@ func RunZmqClient(addr string, events ZmqClientEvents) {
 					if len(s) > 0 {
 						multipart.OnPart <- s
 					}
-				}
 
-				if more, _ = sock.GetRcvmore(); more == false {
-					multipart.OnEnd <- true
-					multipart_in_progress = false
+					if more, _ = sock.GetRcvmore(); more == false {
+						multipart.OnEnd <- true
+						multipart_in_progress = false
+					}
 				}
 			}
 		}
