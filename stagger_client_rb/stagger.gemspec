@@ -8,8 +8,8 @@ Gem::Specification.new do |spec|
   spec.version       = Stagger::VERSION
   spec.authors       = ["Martyn Loughran"]
   spec.email         = ["me@mloughran.com"]
-  spec.description   = %q{TODO: Write a gem description}
-  spec.summary       = %q{TODO: Write a gem summary}
+  spec.description   = %q{Stats aggregation}
+  spec.summary       = %q{Stats aggregation}
   spec.homepage      = ""
   spec.license       = "MIT"
 
