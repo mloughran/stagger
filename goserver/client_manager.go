@@ -54,6 +54,9 @@ func StartClientManager(registration chan (Registration), stats_channels StatsCh
 	// Notification on timeout for receiving data for a timestamp
 	on_timeout := make(chan int64)
 
+	// Avoid allocations
+	var ts int64
+
 	for {
 		select {
 		case reg := <-registration:
@@ -70,7 +73,7 @@ func StartClientManager(registration chan (Registration), stats_channels StatsCh
 			// clients, but this requires using more than a simple count
 		case now := <-heartbeat:
 			if len(clients) > 0 {
-				ts := now.Unix()
+				ts = now.Unix()
 				debug.Print("[cm] Sending request for stats at ", ts)
 
 				// Store number of clients for this stat
@@ -89,13 +92,13 @@ func StartClientManager(registration chan (Registration), stats_channels StatsCh
 					on_timeout <- ts
 				}()
 			}
-		case ts := <-on_timeout:
+		case ts = <-on_timeout:
 			if remaining, present := outstanding_stats[ts]; present {
 				debug.Printf("[cm] Timeout exceeded for ts %v, %v clients yet to report", ts, remaining)
 				ts_complete <- ts // TODO: Notify that it wasn't clean
 			}
 		case c := <-complete:
-			ts := c.Timestamp
+			ts = c.Timestamp
 			// TODO: Handle possibility that this does not exist
 			outstanding_stats[ts] -= 1
 
