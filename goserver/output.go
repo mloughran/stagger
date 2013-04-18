@@ -14,12 +14,20 @@ type OutputStat struct {
 	Dist      *Dist
 }
 
-func RunOutput(complete_chan chan (*TimestampedStats)) {
+func RunOutput(complete_chan chan (*TimestampedStats), librato *Librato) {
 	pub, _ := zmq.NewSocket(zmq.PUB)
 
 	pub.Bind("tcp://*:5563")
 
+	// Using a buffered channel to isolate slowness posting to librato
+	librato_chan := make(chan *TimestampedStats, 100)
+	if librato != nil {
+		go librato.Run(librato_chan)
+	}
+
 	for stats := range complete_chan {
+		// Logging (temp)
+
 		log.Printf("[output] Data for ts %v", stats.Timestamp)
 		for key, value := range stats.Counters {
 			log.Printf("[output] %v: %v", key, value)
@@ -27,6 +35,8 @@ func RunOutput(complete_chan chan (*TimestampedStats)) {
 		for key, value := range stats.Dists {
 			log.Printf("[output] %v: %v", key, value)
 		}
+
+		// ZMQ pubsub
 
 		for key, value := range stats.Dists {
 			output_stat := OutputStat{stats.Timestamp, value}
@@ -39,6 +49,11 @@ func RunOutput(complete_chan chan (*TimestampedStats)) {
 			// TODO: Handle errors
 			pub.Send(key, zmq.SNDMORE) // Use stat name as channel?
 			pub.SendBytes(b.Bytes(), 0)
+		}
+
+		// LIBRATO
+		if librato != nil {
+			librato_chan <- stats
 		}
 	}
 }

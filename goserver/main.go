@@ -27,8 +27,14 @@ const debug debugger = false
 const info debugger = true
 
 func main() {
+	hostname, _ := os.Hostname()
+
+	var source = flag.String("source", hostname, "source (for reporting)")
 	var interval = flag.Int("interval", 10, "stats interval (in seconds)")
 	var reg_addr = flag.String("registration", "tcp://127.0.0.1:5867", "address to which clients register")
+	var librato_email = flag.String("librato_email", "", "librato email")
+	var librato_token = flag.String("librato_token", "", "librato token")
+
 	flag.Parse()
 
 	reg_chan := make(chan Registration)
@@ -44,7 +50,12 @@ func main() {
 
 	go RunAggregator(stats_channels, ts_complete, ts_new, output_chan)
 
-	go RunOutput(output_chan)
+	if len(*librato_email) > 0 && len(*librato_token) > 0 {
+		librato := NewLibrato(*source, *librato_email, *librato_token)
+		go RunOutput(output_chan, librato)
+	} else {
+		go RunOutput(output_chan, nil)
+	}
 
 	// Just used for debugging
 	go log.Fatal(http.ListenAndServe(":8080", nil))
