@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"log"
 	"net/http"
 	_ "net/http/pprof"
@@ -26,14 +27,18 @@ const debug debugger = false
 const info debugger = true
 
 func main() {
+	var interval = flag.Int("interval", 10, "stats interval (in seconds)")
+	var reg_addr = flag.String("registration", "tcp://127.0.0.1:5867", "address to which clients register")
+	flag.Parse()
+
 	reg_chan := make(chan Registration)
 	stats_channels := NewStatsChannels()
 	ts_complete := make(chan int64)
 	ts_new := make(chan int64)
 
-	go StartRegistration("tcp://127.0.0.1:5867", reg_chan)
+	go StartRegistration(*reg_addr, reg_chan)
 
-	go StartClientManager(reg_chan, stats_channels, ts_complete, ts_new)
+	go StartClientManager(*interval, reg_chan, stats_channels, ts_complete, ts_new)
 
 	output_chan := make(chan *TimestampedStats)
 
