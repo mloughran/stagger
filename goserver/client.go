@@ -3,10 +3,9 @@ package main
 import (
 	"bytes"
 	"fmt"
+	msgpack "github.com/ugorji/go-msgpack"
 	"strings"
 )
-
-import msgpack "github.com/ugorji/go-msgpack"
 
 type StatsEnvelope struct {
 	Method    string
@@ -21,7 +20,6 @@ type ProtStat struct {
 }
 
 type StatsRequest struct {
-	Method    string
 	Timestamp int64
 }
 
@@ -57,12 +55,12 @@ func RunClient(reg Registration, c ClientRef, stats_channels StatsChannels, comp
 	for {
 		select {
 		case ts := <-c.RequestStats:
-			stats_req := StatsRequest{"report_all", ts}
+			stats_req := StatsRequest{ts}
 			var b bytes.Buffer
 			encoder := msgpack.NewEncoder(&b)
 			encoder.Encode(stats_req)
 
-			events.SendMessage <- b.Bytes()
+			events.SendMessage <- ZMQMessage{"report_all", b.Bytes()}
 		case multipart := <-events.OnMessage:
 			envelope := decodeEnv(multipart.Envelope)
 			ts := envelope.Timestamp

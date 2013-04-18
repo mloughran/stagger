@@ -7,7 +7,7 @@ import (
 type ZmqClientEvents struct {
 	OnMessage   chan ZMQMultipart
 	OnClose     chan (bool)
-	SendMessage chan []byte
+	SendMessage chan ZMQMessage
 }
 
 type ZMQMultipart struct {
@@ -16,10 +16,15 @@ type ZMQMultipart struct {
 	OnEnd    chan bool
 }
 
+type ZMQMessage struct {
+	Method string
+	Params []byte // TODO: Can we change to interface{} and pack here?
+}
+
 // Creates a Zmq client, runs it's gorouting, and returns the channels on 
 // which you should communicate
 func NewZmqClient(addr string) ZmqClientEvents {
-	events := ZmqClientEvents{make(chan ZMQMultipart), make(chan bool), make(chan []byte)}
+	events := ZmqClientEvents{make(chan ZMQMultipart), make(chan bool), make(chan ZMQMessage)}
 
 	go RunZmqClient(addr, events)
 
@@ -86,11 +91,22 @@ func RunZmqClient(addr string, events ZmqClientEvents) {
 
 	for {
 		msg := <-events.SendMessage
+
+		// Note: I considered using sock.SendMessage but unfortunately that
+		// doesn't support arbitrary flags, and it basically does this anway.
+
 		// Set DONTWAIT so that Send doesn't block when HWM is reached
-		if _, err := sock.SendBytes(msg, zmq.DONTWAIT); err != nil {
+
+		// In case of an error and return, an OnClose will be sent by defer
+
+		if _, err := sock.Send(msg.Method, zmq.DONTWAIT|zmq.SNDMORE); err != nil {
 			info.Print("Closing client ", addr, " after ", err)
 			closed = true
-			// OnClose event will be sent by defer
+			return
+		}
+		if _, err := sock.SendBytes(msg.Params, zmq.DONTWAIT); err != nil {
+			info.Print("Closing client ", addr, " after ", err)
+			closed = true
 			return
 		}
 	}

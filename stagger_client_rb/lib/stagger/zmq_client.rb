@@ -37,9 +37,17 @@ module Stagger
 
     private
 
-    def command(part)
-      params = MessagePack.unpack(part.copy_out_string)
-      emit(:command, params.delete("Method"), params)
+    def command(part1, part2)
+      method = part1.copy_out_string
+
+      msgpack_params = part2.copy_out_string
+      params = if !msgpack_params.empty?
+        MessagePack.unpack(msgpack_params)
+      else
+        {}
+      end
+
+      emit(:command, method, params)
     end
   end
 end
