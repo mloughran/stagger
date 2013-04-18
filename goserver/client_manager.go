@@ -5,7 +5,6 @@
 package main
 
 import (
-	"log"
 	"time"
 )
 
@@ -63,16 +62,16 @@ func StartClientManager(registration chan (Registration), stats_channels StatsCh
 			client := ClientRef{client_id_incr, make(chan int64)}
 			go RunClient(reg, client, stats_channels, complete, on_client_gone)
 			clients[client_id_incr] = client
-			log.Printf("[cm] Added client %v (count: %v)", client_id_incr, len(clients))
+			info.Printf("[cm] Added client %v (count: %v)", client_id_incr, len(clients))
 		case id := <-on_client_gone:
 			delete(clients, id)
-			log.Printf("[cm] Removed client %v (count: %v)", id, len(clients))
+			info.Printf("[cm] Removed client %v (count: %v)", id, len(clients))
 			// TODO: Should also remove this client from the list of unreported
 			// clients, but this requires using more than a simple count
 		case now := <-heartbeat:
 			if len(clients) > 0 {
 				ts := now.Unix()
-				log.Print("[cm] Sending request for stats at ", ts)
+				debug.Print("[cm] Sending request for stats at ", ts)
 
 				// Store number of clients for this stat
 				outstanding_stats[ts] = len(clients)
@@ -92,17 +91,21 @@ func StartClientManager(registration chan (Registration), stats_channels StatsCh
 			}
 		case ts := <-on_timeout:
 			if remaining, present := outstanding_stats[ts]; present {
-				log.Printf("[cm] Timeout exceeded for receiving stats for ts %v, %v clients yet to report", ts, remaining)
+				debug.Printf("[cm] Timeout exceeded for ts %v, %v clients yet to report", ts, remaining)
 				ts_complete <- ts // TODO: Notify that it wasn't clean
 			}
 		case c := <-complete:
+			ts := c.Timestamp
 			// TODO: Handle possibility that this does not exist
-			outstanding_stats[c.Timestamp] -= 1
+			outstanding_stats[ts] -= 1
 
-			if outstanding_stats[c.Timestamp] == 0 {
-				delete(outstanding_stats, c.Timestamp)
-				log.Print("[cm] Stats done for ts ", c.Timestamp)
-				ts_complete <- c.Timestamp
+			if outstanding_stats[ts] == 0 {
+				delete(outstanding_stats, ts)
+				if debug {
+					t := time.Unix(ts, 0)
+					debug.Printf("[cm] Received from all clients for ts %v (%v)", ts, t)
+				}
+				ts_complete <- ts
 			}
 		}
 	}

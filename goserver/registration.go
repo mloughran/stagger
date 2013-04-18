@@ -3,7 +3,6 @@ package main
 import (
 	zmq "github.com/pebbe/zmq3"
 	msgpack "github.com/ugorji/go-msgpack"
-	"log"
 	"strings"
 )
 
@@ -19,7 +18,7 @@ func StartRegistration(address string, reg_chan chan (Registration)) {
 	pull, _ := zmq.NewSocket(zmq.PULL)
 	defer pull.Close()
 	pull.Bind(address)
-	log.Print("[registration] Bound to ", address)
+	debug.Printf("[registration] Bound to %v", address)
 
 	for {
 		// Not sure if it's better to Recv or RecvBytes
@@ -33,7 +32,7 @@ func StartRegistration(address string, reg_chan chan (Registration)) {
 		var resp RegMsg
 		dec := msgpack.NewDecoder(buf, nil)
 		if err := dec.Decode(&resp); err != nil {
-			log.Print(err)
+			info.Print(err)
 			return
 		}
 

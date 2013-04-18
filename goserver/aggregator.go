@@ -1,9 +1,5 @@
 package main
 
-import (
-	"log"
-)
-
 type StatIdentifier struct {
 	Timestamp int64
 	Name      string
@@ -110,7 +106,7 @@ func RunAggregator(stats StatsChannels, ts_complete chan (int64), ts_new chan (i
 			aggregate.AddDist(s)
 		case ts := <-ts_complete:
 			if agg := aggregate.FinishTimestamp(ts); agg != nil {
-				log.Print("[aggregator] Finished aggregating data for timestamp: ", ts)
+				debug.Printf("[aggregator] Finished aggregating data for ts %v", ts)
 				output_chan <- agg
 			}
 		}

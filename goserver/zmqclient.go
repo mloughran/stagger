@@ -2,7 +2,6 @@ package main
 
 import (
 	zmq "github.com/pebbe/zmq3"
-	"log"
 )
 
 type ZmqClientEvents struct {
@@ -89,7 +88,7 @@ func RunZmqClient(addr string, events ZmqClientEvents) {
 		msg := <-events.SendMessage
 		// Set DONTWAIT so that Send doesn't block when HWM is reached
 		if _, err := sock.SendBytes(msg, zmq.DONTWAIT); err != nil {
-			log.Print("Closing client ", addr, " after ", err)
+			info.Print("Closing client ", addr, " after ", err)
 			closed = true
 			// OnClose event will be sent by defer
 			return

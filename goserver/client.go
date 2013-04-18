@@ -3,7 +3,6 @@ package main
 import (
 	"bytes"
 	"fmt"
-	"log"
 	"strings"
 )
 
@@ -32,7 +31,7 @@ func decodeEnv(packed string) StatsEnvelope {
 	var envelope StatsEnvelope
 	dec := msgpack.NewDecoder(buf, nil)
 	if err := dec.Decode(&envelope); err != nil {
-		log.Print(err)
+		info.Print(err)
 		// return
 	}
 	return envelope
@@ -43,21 +42,21 @@ func decodeStat(packed string) ProtStat {
 	var stat ProtStat
 	dec := msgpack.NewDecoder(buf, nil)
 	if err := dec.Decode(&stat); err != nil {
-		log.Print(err)
+		info.Print(err)
 		// return
 	}
 	return stat
 }
 
-func RunClient(reg Registration, info ClientRef, stats_channels StatsChannels, complete chan (CompleteMessage), send_gone chan (int)) {
-	name := fmt.Sprintf("[client:%v-%v]", info.Id, reg.Name)
+func RunClient(reg Registration, c ClientRef, stats_channels StatsChannels, complete chan (CompleteMessage), send_gone chan (int)) {
+	name := fmt.Sprintf("[client:%v-%v]", c.Id, reg.Name)
 
-	log.Print(name, "Connecting to ", reg.Address)
+	debug.Print(name, "Connecting to ", reg.Address)
 	events := NewZmqClient(reg.Address)
 
 	for {
 		select {
-		case ts := <-info.RequestStats:
+		case ts := <-c.RequestStats:
 			stats_req := StatsRequest{"report_all", ts}
 			var b bytes.Buffer
 			encoder := msgpack.NewEncoder(&b)
@@ -67,7 +66,7 @@ func RunClient(reg Registration, info ClientRef, stats_channels StatsChannels, c
 		case multipart := <-events.OnMessage:
 			envelope := decodeEnv(multipart.Envelope)
 			ts := envelope.Timestamp
-			log.Printf("%v Receiving for ts:%v [start]", name, ts)
+			debug.Printf("%v Receiving for ts:%v [start]", name, ts)
 
 			// Handle message parts in a goroutine
 			go func() {
@@ -84,19 +83,19 @@ func RunClient(reg Registration, info ClientRef, stats_channels StatsChannels, c
 						case "vd":
 							stats_channels.DistStats <- DistStat{&id, stat.D}
 						default:
-							log.Print(name, "Invalid type ", stat.T)
+							info.Print(name, "Invalid type ", stat.T)
 						}
 
 					case <-multipart.OnEnd:
-						log.Printf("%v Receiving for ts:%v [end]", name, ts)
-						complete <- CompleteMessage{info.Id, ts}
+						debug.Printf("%v Receiving for ts:%v [end]", name, ts)
+						complete <- CompleteMessage{c.Id, ts}
 						return
 					}
 				}
 			}()
 		case <-events.OnClose:
-			log.Print(name, "Connection to ", reg.Address, " closed")
-			send_gone <- info.Id
+			debug.Print(name, "Connection to ", reg.Address, " closed")
+			send_gone <- c.Id
 			return
 		}
 	}

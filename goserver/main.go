@@ -8,6 +8,23 @@ import (
 	"os/signal"
 )
 
+type debugger bool
+
+func (d debugger) Printf(format string, args ...interface{}) {
+	if d {
+		log.Printf(format, args...)
+	}
+}
+
+func (d debugger) Print(args ...interface{}) {
+	if d {
+		log.Print(args...)
+	}
+}
+
+const debug debugger = false
+const info debugger = true
+
 func main() {
 	reg_chan := make(chan Registration)
 	stats_channels := NewStatsChannels()
@@ -31,5 +48,5 @@ func main() {
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt)
 	<-c
-	log.Print("[main] Exiting cleanly")
+	info.Print("[main] Exiting cleanly")
 }
