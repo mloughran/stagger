@@ -1,11 +1,8 @@
 # coding: utf-8
-lib = File.expand_path('../lib', __FILE__)
-$LOAD_PATH.unshift(lib) unless $LOAD_PATH.include?(lib)
-require 'stagger/version'
 
 Gem::Specification.new do |spec|
   spec.name          = "stagger"
-  spec.version       = Stagger::VERSION
+  spec.version       = "0.0.1"
   spec.authors       = ["Martyn Loughran"]
   spec.email         = ["me@mloughran.com"]
   spec.description   = %q{Stats aggregation}
