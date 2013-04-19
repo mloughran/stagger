@@ -33,15 +33,14 @@ func (l *Librato) Run(on_stats chan (*TimestampedStats)) {
 }
 
 func (l *Librato) Post(stats *TimestampedStats) {
-	counters := make([]map[string]interface{}, 0)
+	gagues := make([]map[string]interface{}, 0)
 	for key, value := range stats.Counters {
-		counters = append(counters, map[string]interface{}{
+		gagues = append(gagues, map[string]interface{}{
 			"name":  key,
 			"value": value,
 		})
 	}
 
-	gagues := make([]map[string]interface{}, 0)
 	for key, value := range stats.Dists {
 		gagues = append(gagues, map[string]interface{}{
 			"name":        key,
@@ -56,7 +55,6 @@ func (l *Librato) Post(stats *TimestampedStats) {
 	data := map[string]interface{}{
 		"source":       l.Source,
 		"measure_time": stats.Timestamp,
-		"counters":     counters,
 		"gauges":       gagues,
 	}
 
