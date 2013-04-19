@@ -57,6 +57,8 @@ func main() {
 		go RunOutput(output_chan, nil)
 	}
 
+	info.Printf("Stagger running")
+
 	// Just used for debugging
 	go log.Fatal(http.ListenAndServe(":8080", nil))
 
