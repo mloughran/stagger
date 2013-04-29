@@ -31,7 +31,6 @@ func NewZmqClient(addr string) ZmqClientEvents {
 	return events
 }
 
-// 
 func RunZmqClient(addr string, events ZmqClientEvents) {
 	sock, _ := zmq.NewSocket(zmq.PAIR)
 
@@ -45,50 +44,53 @@ func RunZmqClient(addr string, events ZmqClientEvents) {
 	sock.Connect(addr)
 
 	// These are used so that we can stop the reading goroutine - hacky...
-	// TODO: Configurable?
-	sock.SetRcvtimeo(1e9)
+	sock.SetRcvtimeo(61e9) // 61s
 	closed := false
 
 	// TODO: This isn't correct because sock not threadsafe...
 	go func() {
-		defer sock.Close()
-
-		var multipart_in_progress bool = false
-		var multipart ZMQMultipart
-		var more bool
+		defer func() {
+			debug.Printf("[zmqclient] Closing socket")
+			sock.Close()
+		}()
 
 		for {
+			parts, err := sock.RecvMessageBytes(0)
+
 			if closed {
 				return
 			}
 
-			// We expect an error when the rcv timeout is exceeded
-			s, err := sock.Recv(0)
-			if err == nil {
+			if err != nil {
+				debug.Printf("[zmqclient] Recv err: %v", err)
+			} else {
+				s := string(parts[0])
+
 				if s == "ping" {
-					debug.Print("Replying to ping")
+					debug.Print("[zmqclient] Received ping, sending pong")
 					events.SendMessage <- ZMQMessage{"pong", []byte("")}
-				} else if multipart_in_progress == false {
-					multipart_in_progress = true
-					multipart = ZMQMultipart{s, make(chan string), make(chan bool)}
-					events.OnMessage <- multipart
+				} else if s == "pong" {
+					debug.Print("[zmqclient] Received pong")
+					// Do nothing
 				} else {
-					// Convenience so you can send an empty last message to close (the
-					// empty message will be ignored), not entirely sure about this
-					if len(s) > 0 {
-						multipart.OnPart <- s
+					debug.Printf("[zmqclient] Received multipart, size: %v", len(parts))
+					multipart := ZMQMultipart{s, make(chan string), make(chan bool)}
+					events.OnMessage <- multipart
+
+					for i := 1; i < len(parts); i++ {
+						if len(parts[i]) > 0 {
+							multipart.OnPart <- string(parts[i])
+						}
 					}
 
-					if more, _ = sock.GetRcvmore(); more == false {
-						multipart.OnEnd <- true
-						multipart_in_progress = false
-					}
+					multipart.OnEnd <- true
 				}
 			}
 		}
 	}()
 
 	defer func() {
+		closed = true
 		events.OnClose <- true
 	}()
 
@@ -103,13 +105,11 @@ func RunZmqClient(addr string, events ZmqClientEvents) {
 		// In case of an error and return, an OnClose will be sent by defer
 
 		if _, err := sock.Send(msg.Method, zmq.DONTWAIT|zmq.SNDMORE); err != nil {
-			info.Print("Closing client ", addr, " after ", err)
-			closed = true
+			info.Printf("[zmqclient] Closing %v after err: %v", addr, err)
 			return
 		}
 		if _, err := sock.SendBytes(msg.Params, zmq.DONTWAIT); err != nil {
-			info.Print("Closing client ", addr, " after ", err)
-			closed = true
+			info.Printf("[zmqclient] Closing %v after err: %v", addr, err)
 			return
 		}
 	}
