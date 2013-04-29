@@ -2,13 +2,11 @@ package main
 
 import (
 	zmq "github.com/pebbe/zmq3"
-	msgpack "github.com/ugorji/go-msgpack"
-	"strings"
 )
 
 type RegMsg struct {
-	Name    string
-	Address string
+	Address  string
+	Metadata string
 }
 
 // Alias the type to decouple internals from the ZMQ message
@@ -22,20 +20,18 @@ func StartRegistration(address string, reg_chan chan (Registration)) {
 
 	for {
 		// Not sure if it's better to Recv or RecvBytes
-		msg, _ := pull.Recv(0)
+		parts, err := pull.RecvMessage(0)
 
-		// Convert into something with a Read method, bit horrible
-		// buf := bytes.NewBuffer(msg)
-		buf := strings.NewReader(msg)
-
-		// Decode the msgpack data into Response struct
-		var resp RegMsg
-		dec := msgpack.NewDecoder(buf, nil)
-		if err := dec.Decode(&resp); err != nil {
-			info.Print(err)
-			return
+		if err != nil {
+			info.Printf("[registration] Recv error: %v", err)
+			continue
 		}
 
-		reg_chan <- Registration(resp)
+		if len(parts) != 2 {
+			info.Printf("[registration] Invalid registration, should have 2 parts")
+			continue
+		}
+
+		reg_chan <- Registration(RegMsg{parts[0], parts[1]})
 	}
 }

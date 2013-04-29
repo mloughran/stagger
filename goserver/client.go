@@ -47,7 +47,7 @@ func decodeStat(packed string) ProtStat {
 }
 
 func RunClient(reg Registration, c ClientRef, stats_channels StatsChannels, complete chan (CompleteMessage), send_gone chan (int)) {
-	name := fmt.Sprintf("[client:%v-%v]", c.Id, reg.Name)
+	name := fmt.Sprintf("[client:%v-%v]", c.Id, reg.Metadata)
 
 	debug.Print(name, "Connecting to ", reg.Address)
 	events := NewZmqClient(reg.Address)
