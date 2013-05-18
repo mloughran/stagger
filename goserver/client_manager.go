@@ -74,7 +74,7 @@ func StartClientManager(interval int, registration chan (Registration), stats_ch
 		case now := <-heartbeat:
 			if len(clients) > 0 {
 				ts = now.Unix()
-				debug.Print("[cm] Sending request for stats at ", ts)
+				info.Printf("Requesting at %v from %v clients", ts, len(clients))
 
 				// Store number of clients for this stat
 				outstanding_stats[ts] = len(clients)
