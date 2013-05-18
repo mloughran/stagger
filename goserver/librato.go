@@ -86,9 +86,9 @@ func (l *Librato) Post(stats *TimestampedStats) {
 	}
 
 	if resp.StatusCode != 200 {
-		debug.Printf("[librato] Invalid status: %v", resp.StatusCode)
+		info.Printf("[librato] Invalid status: %v", resp.StatusCode)
 		body, _ := ioutil.ReadAll(resp.Body)
-		debug.Printf("[librato] HTTP body: %v", string(body))
+		info.Printf("[librato] HTTP body: %v", string(body))
 		return
 	}
 
