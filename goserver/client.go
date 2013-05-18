@@ -16,11 +16,45 @@ type ProtStat struct {
 	N string
 	T string
 	V float64
-	D []float64
+	D [5]float64
 }
 
 type StatsRequest struct {
 	Timestamp int64
+}
+
+type Stats struct {
+	Timestamp int64
+	Values    []StatValue
+	Counts    []StatCount
+	Dists     []StatDist
+}
+
+// TODO: Needs weight
+type StatValue struct {
+	Name  string
+	Value float64
+}
+
+type StatCount struct {
+	Name  string
+	Count float64
+}
+
+type StatDist struct {
+	Name string
+	Dist [5]float64
+}
+
+func decodeStats(packed []byte) Stats {
+	buf := strings.NewReader(string(packed))
+	var stats Stats
+	dec := msgpack.NewDecoder(buf, nil)
+	if err := dec.Decode(&stats); err != nil {
+		info.Print("Error decoding stats", err)
+		// return ?
+	}
+	return stats
 }
 
 // TODO: Return error if fails
@@ -91,6 +125,15 @@ func RunClient(reg Registration, c ClientRef, stats_channels StatsChannels, comp
 					}
 				}
 			}()
+		case m := <-events.OnMethod:
+			switch m.Method {
+			case "stats_complete":
+				stats := decodeStats(m.Params)
+				stats_channels.Stats <- stats
+				complete <- CompleteMessage{c.Id, stats.Timestamp}
+			default:
+				info.Printf("Received unknown command %v", m.Method)
+			}
 		case <-events.OnClose:
 			debug.Print(name, "Connection to ", reg.Address, " closed")
 			send_gone <- c.Id

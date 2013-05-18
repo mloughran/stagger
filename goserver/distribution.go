@@ -17,7 +17,7 @@ func NewDistFromValue(v float64) *Dist {
 	return &Dist{1, v, v, v, v * v}
 }
 
-func ContstructDist(vs []float64) *Dist {
+func ContstructDist(vs [5]float64) *Dist {
 	return &Dist{
 		vs[0],
 		vs[1],
