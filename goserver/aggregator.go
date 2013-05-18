@@ -70,9 +70,8 @@ func (self Aggregate) AddCounter(s CounterStat) {
 
 func (self Aggregate) AddValue(s ValueStat) {
 	if agg, ts_exists := self[s.Timestamp]; ts_exists {
-		if _, present := agg.Dists[s.Name]; present {
-			dist := agg.Dists[s.Name]
-			dist.AddEntry(s.Value)
+		if d, present := agg.Dists[s.Name]; present {
+			d.AddEntry(s.Value)
 		} else {
 			agg.Dists[s.Name] = NewDistFromValue(s.Value)
 		}
@@ -82,9 +81,8 @@ func (self Aggregate) AddValue(s ValueStat) {
 func (self Aggregate) AddDist(s DistStat) {
 	if agg, ts_exists := self[s.Timestamp]; ts_exists {
 		dist := ContstructDist(s.Dist)
-		if _, present := agg.Dists[s.Name]; present {
-			dist := agg.Dists[s.Name]
-			dist.Add(dist)
+		if d, present := agg.Dists[s.Name]; present {
+			d.Add(dist)
 		} else {
 			agg.Dists[s.Name] = dist
 		}
