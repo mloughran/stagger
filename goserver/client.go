@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"fmt"
 	msgpack "github.com/ugorji/go-msgpack"
 	"strings"
@@ -89,10 +88,8 @@ func RunClient(reg Registration, c ClientRef, stats_channels StatsChannels, comp
 	for {
 		select {
 		case message := <-c.SendMessage:
-			var b bytes.Buffer
-			encoder := msgpack.NewEncoder(&b)
-			encoder.Encode(message.Params)
-			events.SendMessage <- ZMQMessage{message.Method, b.Bytes()}
+			b, _ := msgpack.Marshal(message.Params)
+			events.SendMessage <- ZMQMessage{message.Method, b}
 		case multipart := <-events.OnMessage:
 			envelope := decodeEnv(multipart.Envelope)
 			ts := envelope.Timestamp

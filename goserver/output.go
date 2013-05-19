@@ -3,7 +3,6 @@
 package main
 
 import (
-	"bytes"
 	zmq "github.com/pebbe/zmq3"
 	msgpack "github.com/ugorji/go-msgpack"
 	"log"
@@ -40,15 +39,11 @@ func RunOutput(complete_chan chan (*TimestampedStats), librato *Librato) {
 
 		for key, value := range stats.Dists {
 			output_stat := OutputStat{stats.Timestamp, value}
-
-			// Encode the dist as msgpack
-			var b bytes.Buffer
-			encoder := msgpack.NewEncoder(&b)
-			encoder.Encode(output_stat)
+			b, _ := msgpack.Marshal(output_stat)
 
 			// TODO: Handle errors
 			pub.Send(key, zmq.SNDMORE) // Use stat name as channel?
-			pub.SendBytes(b.Bytes(), 0)
+			pub.SendBytes(b, 0)
 		}
 
 		// LIBRATO
