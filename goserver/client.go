@@ -45,17 +45,6 @@ type StatDist struct {
 	Dist [5]float64
 }
 
-func decodeStats(packed []byte) Stats {
-	buf := strings.NewReader(string(packed))
-	var stats Stats
-	dec := msgpack.NewDecoder(buf, nil)
-	if err := dec.Decode(&stats); err != nil {
-		info.Print("Error decoding stats", err)
-		// return ?
-	}
-	return stats
-}
-
 // TODO: Return error if fails
 func decodeEnv(packed string) StatsEnvelope {
 	buf := strings.NewReader(packed)
@@ -77,6 +66,10 @@ func decodeStat(packed string) ProtStat {
 		// return
 	}
 	return stat
+}
+
+func unmarshal(data []byte, v interface{}) error {
+	return msgpack.Unmarshal(data, v, msgpack.DefaultDecoderContainerResolver)
 }
 
 func RunClient(reg Registration, c ClientRef, stats_channels StatsChannels, complete chan (CompleteMessage), send_gone chan (int)) {
@@ -123,9 +116,13 @@ func RunClient(reg Registration, c ClientRef, stats_channels StatsChannels, comp
 		case m := <-events.OnMethod:
 			switch m.Method {
 			case "stats_complete":
-				stats := decodeStats(m.Params)
-				stats_channels.Stats <- stats
-				complete <- CompleteMessage{c.Id, stats.Timestamp}
+				var stats Stats
+				if err := unmarshal(m.Params, &stats); err != nil {
+					info.Printf("Error decoding stats_complete: %v", err)
+				} else {
+					stats_channels.Stats <- stats
+					complete <- CompleteMessage{c.Id, stats.Timestamp}
+				}
 			default:
 				info.Printf("Received unknown command %v", m.Method)
 			}
