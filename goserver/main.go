@@ -7,6 +7,7 @@ import (
 	_ "net/http/pprof"
 	"os"
 	"os/signal"
+	"time"
 )
 
 type debugger bool
@@ -42,10 +43,11 @@ func main() {
 	stats_channels := NewStatsChannels()
 	ts_complete := make(chan int64)
 	ts_new := make(chan int64)
+	on_shutdown := make(chan bool)
 
 	go StartRegistration(*reg_addr, reg_chan)
 
-	go StartClientManager(*interval, reg_chan, stats_channels, ts_complete, ts_new)
+	go StartClientManager(*interval, reg_chan, stats_channels, ts_complete, ts_new, on_shutdown)
 
 	output_chan := make(chan *TimestampedStats)
 
@@ -67,5 +69,8 @@ func main() {
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt)
 	<-c
+	on_shutdown <- true
+	// TODO: Otherwise on_shutdown doesn't happen - why?
+	<-time.After(1 * time.Millisecond)
 	info.Print("[main] Exiting cleanly")
 }

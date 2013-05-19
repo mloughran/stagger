@@ -42,7 +42,7 @@ func AnchoredTick(period time.Duration) chan (time.Time) {
 	return ticks
 }
 
-func StartClientManager(interval int, registration chan (Registration), stats_channels StatsChannels, ts_complete, ts_new chan (int64)) {
+func StartClientManager(interval int, registration chan (Registration), stats_channels StatsChannels, ts_complete, ts_new chan (int64), on_shutdown chan (bool)) {
 	clients := make(map[int]ClientRef)
 
 	heartbeat := AnchoredTick(time.Duration(interval) * time.Second)
@@ -76,6 +76,11 @@ func StartClientManager(interval int, registration chan (Registration), stats_ch
 			info.Printf("[cm] Removed client %v (count: %v)", id, len(clients))
 			// TODO: Should also remove this client from the list of unreported
 			// clients, but this requires using more than a simple count
+		case <-on_shutdown:
+			info.Printf("[cm] Sending shutdown message to all clients")
+			for _, client := range clients {
+				client.SendMessage <- Message{Method: "pair:shutdown"}
+			}
 		case now := <-heartbeat:
 			if len(clients) > 0 {
 				ts = now.Unix()
