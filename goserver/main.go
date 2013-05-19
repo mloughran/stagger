@@ -35,7 +35,7 @@ func main() {
 	var reg_addr = flag.String("registration", "tcp://127.0.0.1:5867", "address to which clients register")
 	var librato_email = flag.String("librato_email", "", "librato email")
 	var librato_token = flag.String("librato_token", "", "librato token")
-	var http_addr = flag.String("http", ":8080", "HTTP debugging address")
+	var http_addr = flag.String("http", "", "HTTP debugging address (e.g. ':8080')")
 
 	flag.Parse()
 
@@ -60,12 +60,16 @@ func main() {
 		go RunOutput(output_chan, nil)
 	}
 
-	info.Printf("Stagger running")
+	go func() {
+		if *http_addr != "" {
+			info.Printf("[main] HTTP debug server running on %v", *http_addr)
+			log.Println(http.ListenAndServe(*http_addr, nil))
+		}
+	}()
 
-	// Just used for debugging
-	go log.Fatal(http.ListenAndServe(*http_addr, nil))
+	info.Printf("[main] Stagger running")
 
-	// Exit cleanly
+	// Handle termination
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt)
 	<-c
