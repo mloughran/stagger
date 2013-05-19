@@ -88,13 +88,11 @@ func RunClient(reg Registration, c ClientRef, stats_channels StatsChannels, comp
 
 	for {
 		select {
-		case ts := <-c.RequestStats:
-			stats_req := StatsRequest{ts}
+		case message := <-c.SendMessage:
 			var b bytes.Buffer
 			encoder := msgpack.NewEncoder(&b)
-			encoder.Encode(stats_req)
-
-			events.SendMessage <- ZMQMessage{"report_all", b.Bytes()}
+			encoder.Encode(message.Params)
+			events.SendMessage <- ZMQMessage{message.Method, b.Bytes()}
 		case multipart := <-events.OnMessage:
 			envelope := decodeEnv(multipart.Envelope)
 			ts := envelope.Timestamp

@@ -9,8 +9,13 @@ import (
 )
 
 type ClientRef struct {
-	Id           int
-	RequestStats chan (int64) // Request stats from a client for some ts
+	Id          int
+	SendMessage chan (Message)
+}
+
+type Message struct {
+	Method string
+	Params map[string]interface{}
 }
 
 // Sent by clients when they have finished receiving data for a timestamp
@@ -62,7 +67,7 @@ func StartClientManager(interval int, registration chan (Registration), stats_ch
 		case reg := <-registration:
 			client_id_incr += 1
 
-			client := ClientRef{client_id_incr, make(chan int64)}
+			client := ClientRef{client_id_incr, make(chan Message)}
 			go RunClient(reg, client, stats_channels, complete, on_client_gone)
 			clients[client_id_incr] = client
 			info.Printf("[cm] Added client %v (count: %v)", client_id_incr, len(clients))
@@ -83,7 +88,8 @@ func StartClientManager(interval int, registration chan (Registration), stats_ch
 
 				// Send stats request to each client
 				for _, client := range clients {
-					client.RequestStats <- ts
+					// TODO: Make Timestamp lowercase
+					client.SendMessage <- Message{"report_all", map[string]interface{}{"Timestamp": ts}}
 				}
 
 				// Setup timeout to receive all the data
