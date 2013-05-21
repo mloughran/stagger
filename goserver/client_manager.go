@@ -8,16 +8,6 @@ import (
 	"time"
 )
 
-type ClientRef struct {
-	Id          int
-	SendMessage chan (Message)
-}
-
-type Message struct {
-	Method string
-	Params map[string]interface{}
-}
-
 // Sent by clients when they have finished receiving data for a timestamp
 type CompleteMessage struct {
 	ClientId  int
@@ -42,8 +32,8 @@ func AnchoredTick(period time.Duration) chan (time.Time) {
 	return ticks
 }
 
-func StartClientManager(interval int, registration chan (Registration), stats_channels chan (Stats), ts_complete, ts_new chan (int64), on_shutdown chan (bool)) {
-	clients := make(map[int]ClientRef)
+func StartClientManager(interval int, regc chan (*Client), statsc chan (Stats), ts_complete, ts_new chan (int64), on_shutdown chan (bool)) {
+	clients := make(map[int]*Client)
 
 	heartbeat := AnchoredTick(time.Duration(interval) * time.Second)
 
@@ -51,8 +41,6 @@ func StartClientManager(interval int, registration chan (Registration), stats_ch
 
 	// Clients send a message on this channel when they go away
 	on_client_gone := make(chan int)
-
-	client_id_incr := 0
 
 	outstanding_stats := map[int64]int{}
 
@@ -64,13 +52,11 @@ func StartClientManager(interval int, registration chan (Registration), stats_ch
 
 	for {
 		select {
-		case reg := <-registration:
-			client_id_incr += 1
+		case client := <-regc:
+			go client.Run(statsc, complete, on_client_gone)
 
-			client := ClientRef{client_id_incr, make(chan Message)}
-			go RunClient(reg, client, stats_channels, complete, on_client_gone)
-			clients[client_id_incr] = client
-			info.Printf("[cm] Added client %v (count: %v)", client_id_incr, len(clients))
+			clients[client.Id] = client
+			info.Printf("[cm] Added client %v (count: %v)", client.Id, len(clients))
 		case id := <-on_client_gone:
 			delete(clients, id)
 			info.Printf("[cm] Removed client %v (count: %v)", id, len(clients))
@@ -79,7 +65,7 @@ func StartClientManager(interval int, registration chan (Registration), stats_ch
 		case <-on_shutdown:
 			info.Printf("[cm] Sending shutdown message to all clients")
 			for _, client := range clients {
-				client.SendMessage <- Message{Method: "pair:shutdown"}
+				client.Shutdown()
 			}
 		case now := <-heartbeat:
 			if len(clients) > 0 {
@@ -91,10 +77,8 @@ func StartClientManager(interval int, registration chan (Registration), stats_ch
 
 				ts_new <- ts
 
-				// Send stats request to each client
 				for _, client := range clients {
-					// TODO: Make Timestamp lowercase
-					client.SendMessage <- Message{"report_all", map[string]interface{}{"Timestamp": ts}}
+					client.RequestStats(ts)
 				}
 
 				// Setup timeout to receive all the data

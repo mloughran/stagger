@@ -4,22 +4,15 @@ import (
 	zmq "github.com/pebbe/zmq3"
 )
 
-type RegMsg struct {
-	Address  string
-	Metadata string
-}
-
-// Alias the type to decouple internals from the ZMQ message
-type Registration RegMsg
-
-func StartRegistration(address string, reg_chan chan (Registration)) {
+func StartRegistration(address string, regc chan (*Client)) {
 	pull, _ := zmq.NewSocket(zmq.PULL)
 	defer pull.Close()
 	pull.Bind(address)
 	debug.Printf("[registration] Bound to %v", address)
 
+	client_id_incr := 0
+
 	for {
-		// Not sure if it's better to Recv or RecvBytes
 		parts, err := pull.RecvMessage(0)
 
 		if err != nil {
@@ -32,6 +25,8 @@ func StartRegistration(address string, reg_chan chan (Registration)) {
 			continue
 		}
 
-		reg_chan <- Registration(RegMsg{parts[0], parts[1]})
+		client_id_incr += 1
+
+		regc <- NewClient(client_id_incr, parts[0], parts[1])
 	}
 }

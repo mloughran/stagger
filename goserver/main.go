@@ -39,15 +39,15 @@ func main() {
 
 	flag.Parse()
 
-	reg_chan := make(chan Registration)
+	regc := make(chan *Client)
 	statsc := make(chan Stats)
 	ts_complete := make(chan int64)
 	ts_new := make(chan int64)
 	on_shutdown := make(chan bool)
 
-	go StartRegistration(*reg_addr, reg_chan)
+	go StartRegistration(*reg_addr, regc)
 
-	go StartClientManager(*interval, reg_chan, statsc, ts_complete, ts_new, on_shutdown)
+	go StartClientManager(*interval, regc, statsc, ts_complete, ts_new, on_shutdown)
 
 	output_chan := make(chan *TimestampedStats)
 

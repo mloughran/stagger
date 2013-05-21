@@ -41,15 +41,45 @@ func unmarshal(data []byte, v interface{}) error {
 	return msgpack.Unmarshal(data, v, msgpack.DefaultDecoderContainerResolver)
 }
 
-func RunClient(reg Registration, c ClientRef, statsc chan (Stats), complete chan (CompleteMessage), send_gone chan (int)) {
-	name := fmt.Sprintf("[client:%v-%v]", c.Id, reg.Metadata)
+type message struct {
+	Method string
+	Params map[string]interface{}
+}
 
-	debug.Print(name, "Connecting to ", reg.Address)
-	events := NewZmqClient(reg.Address)
+type Client struct {
+	Id    int
+	addr  string
+	name  string
+	sendc chan (message)
+}
+
+func NewClient(id int, addr string, meta string) *Client {
+	name := fmt.Sprintf("[client:%v-%v]", id, meta)
+	sendc := make(chan message)
+	return &Client{
+		id,
+		addr,
+		name,
+		sendc,
+	}
+}
+
+func (c *Client) RequestStats(ts int64) {
+	// TODO: Make Timestamp lowercase
+	c.sendc <- message{"report_all", map[string]interface{}{"Timestamp": ts}}
+}
+
+func (c *Client) Shutdown() {
+	c.sendc <- message{Method: "pair:shutdown"}
+}
+
+func (c *Client) Run(statsc chan (Stats), complete chan (CompleteMessage), send_gone chan (int)) {
+	debug.Print(c.name, "Connecting to ", c.addr)
+	events := NewZmqClient(c.addr)
 
 	for {
 		select {
-		case message := <-c.SendMessage:
+		case message := <-c.sendc:
 			b, _ := msgpack.Marshal(message.Params)
 			events.SendMessage <- ZMQMessage{message.Method, b}
 		case m := <-events.OnMethod:
@@ -66,7 +96,7 @@ func RunClient(reg Registration, c ClientRef, statsc chan (Stats), complete chan
 				info.Printf("Received unknown command %v", m.Method)
 			}
 		case <-events.OnClose:
-			debug.Print(name, "Connection to ", reg.Address, " closed")
+			debug.Print(c.name, "Connection to ", c.addr, " closed")
 			send_gone <- c.Id
 			return
 		}
