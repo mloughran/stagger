@@ -47,7 +47,9 @@ func main() {
 
 	go StartRegistration(*reg_addr, regc)
 
-	go StartClientManager(*interval, regc, statsc, ts_complete, ts_new, on_shutdown)
+	ticker := NewTicker(*interval)
+
+	go StartClientManager(ticker, regc, statsc, ts_complete, ts_new, on_shutdown)
 
 	output_chan := make(chan *TimestampedStats)
 

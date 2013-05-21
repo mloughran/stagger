@@ -4,9 +4,7 @@
 
 package main
 
-import (
-	"time"
-)
+import "time"
 
 // Sent by clients when they have finished receiving data for a timestamp
 type CompleteMessage struct {
@@ -14,28 +12,8 @@ type CompleteMessage struct {
 	Timestamp int64
 }
 
-// Like a time.Tick, but anchored at time modulo boundary
-func AnchoredTick(period time.Duration) chan (time.Time) {
-	ticks := make(chan time.Time)
-	go func() {
-		// Wait till the end of the current period
-		elapsed := time.Now().UnixNano() % period.Nanoseconds()
-		now := <-time.After(time.Duration(period.Nanoseconds() - elapsed))
-
-		// Use Ticker to tick regularly
-		tick_chan := time.Tick(period)
-		ticks <- now
-		for {
-			ticks <- <-tick_chan
-		}
-	}()
-	return ticks
-}
-
-func StartClientManager(interval int, regc chan (*Client), statsc chan (Stats), ts_complete, ts_new chan (int64), on_shutdown chan (bool)) {
+func StartClientManager(ticker chan (time.Time), regc chan (*Client), statsc chan (Stats), ts_complete, ts_new chan (int64), on_shutdown chan (bool)) {
 	clients := make(map[int]*Client)
-
-	heartbeat := AnchoredTick(time.Duration(interval) * time.Second)
 
 	complete := make(chan CompleteMessage)
 
@@ -49,6 +27,7 @@ func StartClientManager(interval int, regc chan (*Client), statsc chan (Stats), 
 
 	// Avoid allocations
 	var ts int64
+	var now time.Time
 
 	for {
 		select {
@@ -67,7 +46,7 @@ func StartClientManager(interval int, regc chan (*Client), statsc chan (Stats), 
 			for _, client := range clients {
 				client.Shutdown()
 			}
-		case now := <-heartbeat:
+		case now = <-ticker:
 			if len(clients) > 0 {
 				ts = now.Unix()
 				info.Printf("Requesting at %v from %v clients", ts, len(clients))
