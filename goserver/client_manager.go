@@ -42,7 +42,7 @@ func AnchoredTick(period time.Duration) chan (time.Time) {
 	return ticks
 }
 
-func StartClientManager(interval int, registration chan (Registration), stats_channels StatsChannels, ts_complete, ts_new chan (int64), on_shutdown chan (bool)) {
+func StartClientManager(interval int, registration chan (Registration), stats_channels chan (Stats), ts_complete, ts_new chan (int64), on_shutdown chan (bool)) {
 	clients := make(map[int]ClientRef)
 
 	heartbeat := AnchoredTick(time.Duration(interval) * time.Second)

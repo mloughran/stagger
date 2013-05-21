@@ -5,16 +5,9 @@ import (
 )
 
 type ZmqClientEvents struct {
-	OnMessage   chan ZMQMultipart
 	OnMethod    chan ZMQMessage
 	OnClose     chan (bool)
 	SendMessage chan ZMQMessage
-}
-
-type ZMQMultipart struct {
-	Envelope string
-	OnPart   chan string
-	OnEnd    chan bool
 }
 
 type ZMQMessage struct {
@@ -22,10 +15,10 @@ type ZMQMessage struct {
 	Params []byte // TODO: Can we change to interface{} and pack here?
 }
 
-// Creates a Zmq client, runs it's gorouting, and returns the channels on 
+// Creates a Zmq client, runs it's gorouting, and returns the channels on
 // which you should communicate
 func NewZmqClient(addr string) ZmqClientEvents {
-	events := ZmqClientEvents{make(chan ZMQMultipart), make(chan ZMQMessage), make(chan bool), make(chan ZMQMessage)}
+	events := ZmqClientEvents{make(chan ZMQMessage), make(chan bool), make(chan ZMQMessage)}
 
 	go RunZmqClient(addr, events)
 
@@ -73,19 +66,6 @@ func RunZmqClient(addr string, events ZmqClientEvents) {
 				} else if s == "pong" {
 					debug.Print("[zmqclient] Received pong")
 					// Do nothing
-				} else if len(parts) > 2 {
-					// TEMP: old protocol would send messages with minimum 3 parts
-					debug.Printf("[zmqclient] Received multipart, size: %v", len(parts))
-					multipart := ZMQMultipart{s, make(chan string), make(chan bool)}
-					events.OnMessage <- multipart
-
-					for i := 1; i < len(parts); i++ {
-						if len(parts[i]) > 0 {
-							multipart.OnPart <- string(parts[i])
-						}
-					}
-
-					multipart.OnEnd <- true
 				} else {
 					if len(parts) != 2 {
 						info.Printf("[zmqclient] Unepected message %v with %v parts", s, len(parts))

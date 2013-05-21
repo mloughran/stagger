@@ -3,19 +3,11 @@ package main
 import (
 	"fmt"
 	msgpack "github.com/ugorji/go-msgpack"
-	"strings"
 )
 
 type StatsEnvelope struct {
 	Method    string
 	Timestamp int64
-}
-
-type ProtStat struct {
-	N string
-	T string
-	V float64
-	D [5]float64
 }
 
 type StatsRequest struct {
@@ -45,34 +37,11 @@ type StatDist struct {
 	Dist [5]float64
 }
 
-// TODO: Return error if fails
-func decodeEnv(packed string) StatsEnvelope {
-	buf := strings.NewReader(packed)
-	var envelope StatsEnvelope
-	dec := msgpack.NewDecoder(buf, nil)
-	if err := dec.Decode(&envelope); err != nil {
-		info.Print(err)
-		// return
-	}
-	return envelope
-}
-
-func decodeStat(packed string) ProtStat {
-	buf := strings.NewReader(packed)
-	var stat ProtStat
-	dec := msgpack.NewDecoder(buf, nil)
-	if err := dec.Decode(&stat); err != nil {
-		info.Print(err)
-		// return
-	}
-	return stat
-}
-
 func unmarshal(data []byte, v interface{}) error {
 	return msgpack.Unmarshal(data, v, msgpack.DefaultDecoderContainerResolver)
 }
 
-func RunClient(reg Registration, c ClientRef, stats_channels StatsChannels, complete chan (CompleteMessage), send_gone chan (int)) {
+func RunClient(reg Registration, c ClientRef, statsc chan (Stats), complete chan (CompleteMessage), send_gone chan (int)) {
 	name := fmt.Sprintf("[client:%v-%v]", c.Id, reg.Metadata)
 
 	debug.Print(name, "Connecting to ", reg.Address)
@@ -83,36 +52,6 @@ func RunClient(reg Registration, c ClientRef, stats_channels StatsChannels, comp
 		case message := <-c.SendMessage:
 			b, _ := msgpack.Marshal(message.Params)
 			events.SendMessage <- ZMQMessage{message.Method, b}
-		case multipart := <-events.OnMessage:
-			envelope := decodeEnv(multipart.Envelope)
-			ts := envelope.Timestamp
-			debug.Printf("%v Receiving for ts:%v [start]", name, ts)
-
-			// Handle message parts in a goroutine
-			go func() {
-				for {
-					select {
-					case part := <-multipart.OnPart:
-						stat := decodeStat(part)
-						id := StatIdentifier{ts, stat.N}
-						switch stat.T {
-						case "c":
-							stats_channels.CounterStats <- CounterStat{&id, stat.V}
-						case "v":
-							stats_channels.ValueStats <- ValueStat{&id, stat.V}
-						case "vd":
-							stats_channels.DistStats <- DistStat{&id, stat.D}
-						default:
-							info.Print(name, "Invalid type ", stat.T)
-						}
-
-					case <-multipart.OnEnd:
-						debug.Printf("%v Receiving for ts:%v [end]", name, ts)
-						complete <- CompleteMessage{c.Id, ts}
-						return
-					}
-				}
-			}()
 		case m := <-events.OnMethod:
 			switch m.Method {
 			case "stats_complete":
@@ -120,7 +59,7 @@ func RunClient(reg Registration, c ClientRef, stats_channels StatsChannels, comp
 				if err := unmarshal(m.Params, &stats); err != nil {
 					info.Printf("Error decoding stats_complete: %v", err)
 				} else {
-					stats_channels.Stats <- stats
+					statsc <- stats
 					complete <- CompleteMessage{c.Id, stats.Timestamp}
 				}
 			default:

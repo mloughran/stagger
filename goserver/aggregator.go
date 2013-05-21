@@ -1,41 +1,5 @@
 package main
 
-type StatIdentifier struct {
-	Timestamp int64
-	Name      string
-}
-
-type ValueStat struct {
-	*StatIdentifier
-	Value float64
-}
-
-type CounterStat struct {
-	*StatIdentifier
-	Count float64
-}
-
-type DistStat struct {
-	*StatIdentifier
-	Dist [5]float64
-}
-
-type StatsChannels struct {
-	ValueStats   chan (ValueStat)
-	CounterStats chan (CounterStat)
-	DistStats    chan (DistStat)
-	Stats        chan (Stats)
-}
-
-func NewStatsChannels() StatsChannels {
-	return StatsChannels{
-		make(chan ValueStat),
-		make(chan CounterStat),
-		make(chan DistStat),
-		make(chan Stats),
-	}
-}
-
 type TimestampedStats struct {
 	Timestamp int64
 	Dists     map[string]*Dist
@@ -96,47 +60,14 @@ func (self Aggregate) FinishTimestamp(ts int64) *TimestampedStats {
 	return nil
 }
 
-func (self Aggregate) AddCounter(s CounterStat) {
-	if agg, ts_exists := self[s.Timestamp]; ts_exists {
-		agg.Counters[s.Name] += s.Count
-	}
-}
-
-func (self Aggregate) AddValue(s ValueStat) {
-	if agg, ts_exists := self[s.Timestamp]; ts_exists {
-		if d, present := agg.Dists[s.Name]; present {
-			d.AddEntry(s.Value)
-		} else {
-			agg.Dists[s.Name] = NewDistFromValue(s.Value)
-		}
-	}
-}
-
-func (self Aggregate) AddDist(s DistStat) {
-	if agg, ts_exists := self[s.Timestamp]; ts_exists {
-		dist := ContstructDist(s.Dist)
-		if d, present := agg.Dists[s.Name]; present {
-			d.Add(dist)
-		} else {
-			agg.Dists[s.Name] = dist
-		}
-	}
-}
-
-func RunAggregator(stats StatsChannels, ts_complete chan (int64), ts_new chan (int64), output_chan chan (*TimestampedStats)) {
+func RunAggregator(statsc chan (Stats), ts_complete chan (int64), ts_new chan (int64), output_chan chan (*TimestampedStats)) {
 	aggregate := Aggregate{}
 
 	for {
 		select {
 		case ts := <-ts_new:
 			aggregate.AddTimestamp(ts)
-		case s := <-stats.CounterStats:
-			aggregate.AddCounter(s)
-		case s := <-stats.ValueStats:
-			aggregate.AddValue(s)
-		case s := <-stats.DistStats:
-			aggregate.AddDist(s)
-		case stats := <-stats.Stats:
+		case stats := <-statsc:
 			agg := aggregate.GetTimestamp(stats.Timestamp)
 
 			for _, s := range stats.Values {
