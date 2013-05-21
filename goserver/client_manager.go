@@ -12,7 +12,7 @@ type CompleteMessage struct {
 	Timestamp int64
 }
 
-func StartClientManager(ticker chan (time.Time), regc chan (*Client), statsc chan (Stats), ts_complete, ts_new chan (int64), on_shutdown chan (bool)) {
+func StartClientManager(ticker chan (time.Time), timeout int, regc chan (*Client), statsc chan (Stats), ts_complete, ts_new chan (int64), on_shutdown chan (bool)) {
 	clients := make(map[int]*Client)
 
 	complete := make(chan CompleteMessage)
@@ -62,7 +62,7 @@ func StartClientManager(ticker chan (time.Time), regc chan (*Client), statsc cha
 
 				// Setup timeout to receive all the data
 				go func() {
-					<-time.After(3 * time.Second)
+					<-time.After(time.Duration(timeout) * time.Millisecond)
 					on_timeout <- ts
 				}()
 			}

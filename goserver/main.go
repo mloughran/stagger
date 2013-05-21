@@ -32,6 +32,7 @@ func main() {
 
 	var source = flag.String("source", hostname, "source (for reporting)")
 	var interval = flag.Int("interval", 10, "stats interval (in seconds)")
+	var timeout = flag.Int("timeout", 1000, "receive timeout (in ms)")
 	var reg_addr = flag.String("registration", "tcp://127.0.0.1:5867", "address to which clients register")
 	var librato_email = flag.String("librato_email", "", "librato email")
 	var librato_token = flag.String("librato_token", "", "librato token")
@@ -49,7 +50,7 @@ func main() {
 
 	ticker := NewTicker(*interval)
 
-	go StartClientManager(ticker, regc, statsc, ts_complete, ts_new, on_shutdown)
+	go StartClientManager(ticker, *timeout, regc, statsc, ts_complete, ts_new, on_shutdown)
 
 	output_chan := make(chan *TimestampedStats)
 
