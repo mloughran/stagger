@@ -73,7 +73,7 @@ func (c *Client) Shutdown() {
 	c.sendc <- message{Method: "pair:shutdown"}
 }
 
-func (c *Client) Run(statsc chan (Stats), complete chan (CompleteMessage), send_gone chan (int)) {
+func (c *Client) Run(statsc chan (*Stats), complete chan (CompleteMessage), send_gone chan (int)) {
 	debug.Print(c.name, "Connecting to ", c.addr)
 	events := NewZmqClient(c.addr)
 

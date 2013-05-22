@@ -60,7 +60,7 @@ func (self Aggregate) FinishTimestamp(ts int64) *TimestampedStats {
 	return nil
 }
 
-func RunAggregator(statsc chan (Stats), ts_complete chan (int64), ts_new chan (int64), output_chan chan (*TimestampedStats)) {
+func RunAggregator(statsc chan (*Stats), ts_complete chan (int64), ts_new chan (int64), output_chan chan (*TimestampedStats)) {
 	aggregate := Aggregate{}
 
 	for {

@@ -41,7 +41,7 @@ func main() {
 	flag.Parse()
 
 	regc := make(chan *Client)
-	statsc := make(chan Stats)
+	statsc := make(chan *Stats)
 	ts_complete := make(chan int64)
 	ts_new := make(chan int64)
 	on_shutdown := make(chan bool)
