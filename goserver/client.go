@@ -77,6 +77,18 @@ func (c *Client) Run(statsc chan (Stats), complete chan (CompleteMessage), send_
 	debug.Print(c.name, "Connecting to ", c.addr)
 	events := NewZmqClient(c.addr)
 
+	handleStats := func(data []byte) (ts int64, err error) {
+		var stats Stats
+		if err = unmarshal(data, &stats); err == nil {
+			ts = stats.Timestamp
+			statsc <- &stats
+		}
+		return
+	}
+
+	var ts int64
+	var err error
+
 	for {
 		select {
 		case message := <-c.sendc:
@@ -84,13 +96,15 @@ func (c *Client) Run(statsc chan (Stats), complete chan (CompleteMessage), send_
 			events.SendMessage <- ZMQMessage{message.Method, b}
 		case m := <-events.OnMethod:
 			switch m.Method {
+			case "stats_partial":
+				if _, err = handleStats(m.Params); err != nil {
+					info.Printf("Error decoding stats_partial: %v", err)
+				}
 			case "stats_complete":
-				var stats Stats
-				if err := unmarshal(m.Params, &stats); err != nil {
+				if ts, err = handleStats(m.Params); err != nil {
 					info.Printf("Error decoding stats_complete: %v", err)
 				} else {
-					statsc <- stats
-					complete <- CompleteMessage{c.Id, stats.Timestamp}
+					complete <- CompleteMessage{c.Id, ts}
 				}
 			default:
 				info.Printf("Received unknown command %v", m.Method)
