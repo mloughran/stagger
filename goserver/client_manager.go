@@ -61,10 +61,10 @@ func StartClientManager(ticker chan (time.Time), timeout int, regc chan (*Client
 				}
 
 				// Setup timeout to receive all the data
-				go func() {
+				go func(ts int64) {
 					<-time.After(time.Duration(timeout) * time.Millisecond)
 					on_timeout <- ts
-				}()
+				}(ts)
 			}
 		case ts = <-on_timeout:
 			if remaining, present := outstanding_stats[ts]; present {
