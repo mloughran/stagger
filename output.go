@@ -3,9 +3,11 @@
 package main
 
 import (
+	"fmt"
 	zmq "github.com/pebbe/zmq3"
 	msgpack "github.com/ugorji/go-msgpack"
 	"log"
+	"sort"
 )
 
 type OutputStat struct {
@@ -26,17 +28,19 @@ func RunOutput(complete_chan chan (*TimestampedStats), librato *Librato) {
 
 	for stats := range complete_chan {
 		// Logging (temp)
-
 		log.Printf("[output] Data for ts %v", stats.Timestamp)
+
+		var output []string
 		for key, value := range stats.Counters {
-			log.Printf("[output] %v: %v", key, value)
+			output = append(output, fmt.Sprintf("%v: %v\n", key, value))
 		}
 		for key, value := range stats.Dists {
-			log.Printf("[output] %v: %v", key, value)
+			output = append(output, fmt.Sprintf("%v: %v\n", key, value))
 		}
+		sort.Strings(output)
+		log.Print(output)
 
 		// ZMQ pubsub
-
 		for key, value := range stats.Dists {
 			output_stat := OutputStat{stats.Timestamp, value}
 			b, _ := msgpack.Marshal(output_stat)
