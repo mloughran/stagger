@@ -14,29 +14,6 @@ type StatsRequest struct {
 	Timestamp int64
 }
 
-type Stats struct {
-	Timestamp int64
-	Values    []StatValue
-	Counts    []StatCount
-	Dists     []StatDist
-}
-
-// TODO: Needs weight
-type StatValue struct {
-	Name  string
-	Value float64
-}
-
-type StatCount struct {
-	Name  string
-	Count float64
-}
-
-type StatDist struct {
-	Name string
-	Dist [5]float64
-}
-
 func unmarshal(data []byte, v interface{}) error {
 	return msgpack.Unmarshal(data, v, msgpack.DefaultDecoderContainerResolver)
 }
