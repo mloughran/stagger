@@ -47,8 +47,8 @@ func StartClientManager(ticker chan (time.Time), timeout int, regc chan (*Client
 				client.Shutdown()
 			}
 		case now = <-ticker:
+			ts = now.Unix()
 			if len(clients) > 0 {
-				ts = now.Unix()
 				info.Printf("[cm] (ts:%v) Surveying %v clients", ts, len(clients))
 
 				// Store number of clients for this stat
@@ -65,6 +65,8 @@ func StartClientManager(ticker chan (time.Time), timeout int, regc chan (*Client
 					<-time.After(time.Duration(timeout) * time.Millisecond)
 					on_timeout <- ts
 				}(ts)
+			} else {
+				info.Printf("[cm] (ts:%v) No clients connected to survey", ts)
 			}
 		case ts = <-on_timeout:
 			if remaining, present := outstanding_stats[ts]; present {
