@@ -61,7 +61,7 @@ func (self *Aggregator) feed(stats *Stats) {
 }
 
 func (self *Aggregator) report(ts int64) {
-	if ts == self.passed.Timestamp {
+	if ts == self.passedTs {
 		debug.Printf("[aggregator] (ts:%v) Finished aggregating data", ts)
 		self.output <- self.passed
 		self.passed = nil
