@@ -32,7 +32,7 @@ func RunOutput(complete_chan chan (*TimestampedStats), librato *Librato) {
 
 		var output []string
 		for key, value := range stats.Counters {
-			output = append(output, fmt.Sprintf("%v: %v\n", key, value))
+			output = append(output, fmt.Sprintf("%v: %.5g\n", key, value))
 		}
 		for key, value := range stats.Dists {
 			output = append(output, fmt.Sprintf("%v: %v\n", key, value))

@@ -54,5 +54,5 @@ func (self *Dist) Sd() float64 {
 }
 
 func (self *Dist) String() string {
-	return fmt.Sprintf("Distribution: mean: %v, sd: %v, min/max: %v/%v (weight %v)", self.Mean(), self.Sd(), self.Min, self.Max, self.N)
+	return fmt.Sprintf("Distribution: mean: %.5g, sd: %.5g, min/max: %.5g/%.5g (weight %.5g)", self.Mean(), self.Sd(), self.Min, self.Max, self.N)
 }
