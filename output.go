@@ -15,7 +15,7 @@ type OutputStat struct {
 	Dist      *Dist
 }
 
-func RunOutput(complete_chan chan (*TimestampedStats), librato *Librato) {
+func RunOutput(complete_chan <-chan (*TimestampedStats), librato *Librato) {
 	pub, _ := zmq.NewSocket(zmq.PUB)
 
 	pub.Bind("tcp://*:5563")

@@ -3,7 +3,7 @@ package main
 import "time"
 
 // Like a time.Tick, but anchored at time modulo boundary
-func NewTicker(interval int) chan (time.Time) {
+func NewTicker(interval int) <-chan (time.Time) {
 
 	period := time.Duration(interval) * time.Second
 	ticks := make(chan time.Time)

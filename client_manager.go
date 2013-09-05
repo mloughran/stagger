@@ -12,7 +12,7 @@ type CompleteMessage struct {
 	Timestamp int64
 }
 
-func StartClientManager(ticker chan (time.Time), timeout int, regc chan (*Client), statsc chan (*Stats), ts_complete, ts_new chan (int64), on_shutdown chan (bool), aggregator *Aggregator) {
+func StartClientManager(ticker <-chan (time.Time), timeout int, regc <-chan (*Client), statsc chan<- (*Stats), ts_complete, ts_new chan<- (int64), on_shutdown <-chan (bool), aggregator *Aggregator) {
 	clients := make(map[int]*Client)
 
 	complete := make(chan CompleteMessage)

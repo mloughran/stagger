@@ -19,7 +19,7 @@ func NewLibrato(source, email, token string) *Librato {
 	return &Librato{source, email, token}
 }
 
-func (l *Librato) Run(on_stats chan (*TimestampedStats)) {
+func (l *Librato) Run(on_stats <-chan (*TimestampedStats)) {
 	var stats *TimestampedStats
 	for stats = range on_stats {
 		// Don't bother posting if there are no metrics (it's an error anyway)

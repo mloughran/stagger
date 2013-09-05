@@ -4,7 +4,7 @@ import (
 	zmq "github.com/pebbe/zmq3"
 )
 
-func StartRegistration(address string, regc chan (*Client)) {
+func StartRegistration(address string, regc chan<- (*Client)) {
 	pull, _ := zmq.NewSocket(zmq.PULL)
 	defer pull.Close()
 	pull.Bind(address)

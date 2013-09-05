@@ -66,7 +66,7 @@ func NewAggregator() *Aggregator {
 	}
 }
 
-func (self *Aggregator) Run(ts_complete chan (int64), ts_new chan (int64)) {
+func (self *Aggregator) Run(ts_complete <-chan (int64), ts_new <-chan (int64)) {
 	for {
 		select {
 		case ts := <-ts_new:
