@@ -48,13 +48,12 @@ func StartClientManager(ticker chan (time.Time), timeout int, regc chan (*Client
 			}
 		case now = <-ticker:
 			ts = now.Unix()
+			ts_new <- ts
 			if len(clients) > 0 {
 				info.Printf("[cm] (ts:%v) Surveying %v clients", ts, len(clients))
 
 				// Store number of clients for this stat
 				outstanding_stats[ts] = len(clients)
-
-				ts_new <- ts
 
 				for _, client := range clients {
 					client.RequestStats(ts)
