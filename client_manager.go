@@ -35,10 +35,10 @@ func StartClientManager(ticker <-chan (time.Time), timeout int, regc <-chan (*Cl
 			go client.Run(statsc, complete, on_client_gone)
 
 			clients[client.Id] = client
-			info.Printf("[cm] Added client %v (count: %v)", client.Id, len(clients))
+			info.Printf("[cm] Added client id:%v (count: %v)", client.Id, len(clients))
 		case id := <-on_client_gone:
 			delete(clients, id)
-			info.Printf("[cm] Removed client %v (count: %v)", id, len(clients))
+			info.Printf("[cm] Removed client id:%v (count: %v)", id, len(clients))
 			// TODO: Should also remove this client from the list of unreported
 			// clients, but this requires using more than a simple count
 		case <-on_shutdown:
