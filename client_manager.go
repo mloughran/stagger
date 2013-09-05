@@ -49,7 +49,7 @@ func StartClientManager(ticker chan (time.Time), timeout int, regc chan (*Client
 		case now = <-ticker:
 			if len(clients) > 0 {
 				ts = now.Unix()
-				info.Printf("Requesting at %v from %v clients", ts, len(clients))
+				info.Printf("[cm] (ts:%v) Surveying %v clients", ts, len(clients))
 
 				// Store number of clients for this stat
 				outstanding_stats[ts] = len(clients)
@@ -68,7 +68,7 @@ func StartClientManager(ticker chan (time.Time), timeout int, regc chan (*Client
 			}
 		case ts = <-on_timeout:
 			if remaining, present := outstanding_stats[ts]; present {
-				debug.Printf("[cm] Timeout exceeded for ts %v, %v clients yet to report", ts, remaining)
+				debug.Printf("[cm] (ts:%v) Survey timed out, %v clients yet to report", ts, remaining)
 				ts_complete <- ts // TODO: Notify that it wasn't clean
 			}
 		case c := <-complete:
@@ -80,7 +80,7 @@ func StartClientManager(ticker chan (time.Time), timeout int, regc chan (*Client
 				delete(outstanding_stats, ts)
 				if debug {
 					t := time.Unix(ts, 0)
-					debug.Printf("[cm] Received from all clients for ts %v (%v)", ts, t)
+					debug.Printf("[cm] (ts:%v) Received results from all clients (%v)", ts, t)
 				}
 				ts_complete <- ts
 			}

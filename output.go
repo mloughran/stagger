@@ -28,7 +28,7 @@ func RunOutput(complete_chan chan (*TimestampedStats), librato *Librato) {
 
 	for stats := range complete_chan {
 		// Logging (temp)
-		log.Printf("[output] Data for ts %v", stats.Timestamp)
+		var heading = fmt.Sprintf("[output] (ts:%v) Aggregated data:\n", stats.Timestamp)
 
 		var output []string
 		for key, value := range stats.Counters {
@@ -38,7 +38,7 @@ func RunOutput(complete_chan chan (*TimestampedStats), librato *Librato) {
 			output = append(output, fmt.Sprintf("%v: %v\n", key, value))
 		}
 		sort.Strings(output)
-		log.Print(output)
+		log.Print(heading, output)
 
 		// ZMQ pubsub
 		for key, value := range stats.Dists {
