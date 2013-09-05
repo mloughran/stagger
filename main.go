@@ -41,7 +41,6 @@ func main() {
 	flag.Parse()
 
 	regc := make(chan *Client)
-	statsc := make(chan *Stats)
 	ts_complete := make(chan int64)
 	ts_new := make(chan int64)
 	on_shutdown := make(chan bool)
@@ -50,17 +49,16 @@ func main() {
 
 	ticker := NewTicker(*interval)
 
-	go StartClientManager(ticker, *timeout, regc, statsc, ts_complete, ts_new, on_shutdown)
+	aggregator := NewAggregator()
+	go aggregator.Run(ts_complete, ts_new)
 
-	output_chan := make(chan *TimestampedStats)
-
-	go RunAggregator(statsc, ts_complete, ts_new, output_chan)
+	go StartClientManager(ticker, *timeout, regc, aggregator.stats, ts_complete, ts_new, on_shutdown)
 
 	if len(*librato_email) > 0 && len(*librato_token) > 0 {
 		librato := NewLibrato(*source, *librato_email, *librato_token)
-		go RunOutput(output_chan, librato)
+		go RunOutput(aggregator.output, librato)
 	} else {
-		go RunOutput(output_chan, nil)
+		go RunOutput(aggregator.output, nil)
 	}
 
 	go func() {

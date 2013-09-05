@@ -53,26 +53,26 @@ type Aggregator struct {
 	passed   *TimestampedStats
 	passedTs int64
 	next     *TimestampedStats
+	stats    chan (*Stats)
 }
 
-func newAggregator(output_chan chan (*TimestampedStats)) *Aggregator {
+func NewAggregator() *Aggregator {
 	return &Aggregator{
-		output: output_chan,
+		output: make(chan *TimestampedStats),
 		next:   NewTimestampedStats(-1),
+		stats:  make(chan *Stats),
 	}
 }
 
-func RunAggregator(statsc chan (*Stats), ts_complete chan (int64), ts_new chan (int64), output_chan chan (*TimestampedStats)) {
-	aggregator := newAggregator(output_chan)
-
+func (self *Aggregator) Run(ts_complete chan (int64), ts_new chan (int64)) {
 	for {
 		select {
 		case ts := <-ts_new:
-			aggregator.newInterval(ts)
-		case stats := <-statsc:
-			aggregator.feed(stats)
+			self.newInterval(ts)
+		case stats := <-self.stats:
+			self.feed(stats)
 		case ts := <-ts_complete:
-			aggregator.report(ts)
+			self.report(ts)
 		}
 	}
 }
