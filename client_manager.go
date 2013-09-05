@@ -73,26 +73,24 @@ func StartClientManager(ticker <-chan (time.Time), timeout int, regc <-chan (*Cl
 			}
 		case ts = <-on_timeout:
 			if remaining, present := outstanding_stats[ts]; present {
-				debug.Printf("[cm] (ts:%v) Survey timed out, %v clients yet to report", ts, remaining)
+				info.Printf("[cm] (ts:%v) Survey timed out, %v clients yet to report", ts, remaining)
 				aggregator.Count(ts, "stagger.timeouts", Count(remaining))
+				delete(outstanding_stats, ts)
 				ts_complete <- ts // TODO: Notify that it wasn't clean
 			}
 		case c := <-complete:
 			ts = c.Timestamp
-			// TODO: Handle possibility that this does not exist
-			outstanding_stats[ts] -= 1
+			if _, present := outstanding_stats[ts]; present {
+				outstanding_stats[ts] -= 1
 
-			// Record the time for the client to respond to survey in ms
-			latency = float64(time.Now().UnixNano()-ts*1000000000) / 1000000
-			aggregator.Value(ts, "stagger.survey_latency", latency)
+				// Record the time for this client to complete survey in ms
+				latency = float64(time.Now().UnixNano()-ts*1000000000) / 1000000
+				aggregator.Value(ts, "stagger.survey_latency", latency)
 
-			if outstanding_stats[ts] == 0 {
-				delete(outstanding_stats, ts)
-				if debug {
-					t := time.Unix(ts, 0)
-					debug.Printf("[cm] (ts:%v) Received results from all clients (%v)", ts, t)
+				if outstanding_stats[ts] == 0 {
+					delete(outstanding_stats, ts)
+					ts_complete <- ts
 				}
-				ts_complete <- ts
 			}
 		}
 	}
