@@ -28,6 +28,7 @@ func StartClientManager(ticker <-chan (time.Time), timeout int, regc <-chan (*Cl
 	// Avoid allocations
 	var ts int64
 	var now time.Time
+	var latency float64
 
 	for {
 		select {
@@ -80,6 +81,10 @@ func StartClientManager(ticker <-chan (time.Time), timeout int, regc <-chan (*Cl
 			ts = c.Timestamp
 			// TODO: Handle possibility that this does not exist
 			outstanding_stats[ts] -= 1
+
+			// Record the time for the client to respond to survey in ms
+			latency = float64(time.Now().UnixNano()-ts*1000000000) / 1000000
+			aggregator.Value(ts, "stagger.survey_latency", latency)
 
 			if outstanding_stats[ts] == 0 {
 				delete(outstanding_stats, ts)

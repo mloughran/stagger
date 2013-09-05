@@ -78,3 +78,10 @@ func (self *Aggregator) Count(ts int64, name string, value Count) {
 		Counts:    []StatCount{StatCount{name, float64(value)}},
 	}
 }
+
+func (self *Aggregator) Value(ts int64, name string, value float64) {
+	self.stats <- &Stats{
+		Timestamp: ts,
+		Values:    []StatValue{StatValue{name, value}},
+	}
+}
