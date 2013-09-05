@@ -52,7 +52,7 @@ func main() {
 	aggregator := NewAggregator()
 	go aggregator.Run(ts_complete, ts_new)
 
-	go StartClientManager(ticker, *timeout, regc, aggregator.stats, ts_complete, ts_new, on_shutdown)
+	go StartClientManager(ticker, *timeout, regc, aggregator.stats, ts_complete, ts_new, on_shutdown, aggregator)
 
 	if len(*librato_email) > 0 && len(*librato_token) > 0 {
 		librato := NewLibrato(*source, *librato_email, *librato_token)

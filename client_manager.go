@@ -12,7 +12,7 @@ type CompleteMessage struct {
 	Timestamp int64
 }
 
-func StartClientManager(ticker chan (time.Time), timeout int, regc chan (*Client), statsc chan (*Stats), ts_complete, ts_new chan (int64), on_shutdown chan (bool)) {
+func StartClientManager(ticker chan (time.Time), timeout int, regc chan (*Client), statsc chan (*Stats), ts_complete, ts_new chan (int64), on_shutdown chan (bool), aggregator *Aggregator) {
 	clients := make(map[int]*Client)
 
 	complete := make(chan CompleteMessage)
@@ -55,6 +55,9 @@ func StartClientManager(ticker chan (time.Time), timeout int, regc chan (*Client
 				// Store number of clients for this stat
 				outstanding_stats[ts] = len(clients)
 
+				// Record metric for number registered clients
+				aggregator.Count(ts, "stagger.clients", Count(len(clients)))
+
 				for _, client := range clients {
 					client.RequestStats(ts)
 				}
@@ -70,6 +73,7 @@ func StartClientManager(ticker chan (time.Time), timeout int, regc chan (*Client
 		case ts = <-on_timeout:
 			if remaining, present := outstanding_stats[ts]; present {
 				debug.Printf("[cm] (ts:%v) Survey timed out, %v clients yet to report", ts, remaining)
+				aggregator.Count(ts, "stagger.timeouts", Count(remaining))
 				ts_complete <- ts // TODO: Notify that it wasn't clean
 			}
 		case c := <-complete:

@@ -5,6 +5,8 @@
 
 package main
 
+type Count float64
+
 type DistMap map[string]*Dist
 type CounterMap map[string]float64
 
@@ -111,5 +113,13 @@ func (self *Aggregator) report(ts int64) {
 		self.passedTs = -1
 	} else {
 		info.Printf("[aggregator] ERROR, impossible timestamp, passedTs is %v, got finish for %v", self.passedTs, ts)
+	}
+}
+
+// TODO: Not sure about these functions
+func (self *Aggregator) Count(ts int64, name string, value Count) {
+	self.stats <- &Stats{
+		Timestamp: ts,
+		Counts:    []StatCount{StatCount{name, float64(value)}},
 	}
 }
