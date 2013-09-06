@@ -4,11 +4,20 @@ import (
 	zmq "github.com/pebbe/zmq3"
 )
 
-func StartRegistration(address string, regc chan<- (*Client)) {
+type Registration struct {
+	address       string
+	Registrations chan *Client
+}
+
+func NewRegistration(address string) *Registration {
+	return &Registration{address, make(chan *Client)}
+}
+
+func (self *Registration) Run() {
 	pull, _ := zmq.NewSocket(zmq.PULL)
 	defer pull.Close()
-	pull.Bind(address)
-	debug.Printf("[registration] Bound to %v", address)
+	pull.Bind(self.address)
+	debug.Printf("[registration] Bound to %v", self.address)
 
 	client_id_incr := 0
 
@@ -27,6 +36,6 @@ func StartRegistration(address string, regc chan<- (*Client)) {
 
 		client_id_incr += 1
 
-		regc <- NewClient(client_id_incr, parts[0], parts[1])
+		self.Registrations <- NewClient(client_id_incr, parts[0], parts[1])
 	}
 }
