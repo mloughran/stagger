@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	msgpack "github.com/ugorji/go-msgpack"
 )
 
 type StatsEnvelope struct {
@@ -12,10 +11,6 @@ type StatsEnvelope struct {
 
 type StatsRequest struct {
 	Timestamp int64
-}
-
-func unmarshal(data []byte, v interface{}) error {
-	return msgpack.Unmarshal(data, v, msgpack.DefaultDecoderContainerResolver)
 }
 
 type message struct {
@@ -59,6 +54,8 @@ func (c *Client) Run(statsc chan<- (*Stats), complete chan<- (CompleteMessage), 
 		if err = unmarshal(data, &stats); err == nil {
 			ts = stats.Timestamp
 			statsc <- &stats
+		} else {
+			info.Printf("Error decoding msgpack data: %v", data)
 		}
 		return
 	}
@@ -69,8 +66,11 @@ func (c *Client) Run(statsc chan<- (*Stats), complete chan<- (CompleteMessage), 
 	for {
 		select {
 		case message := <-c.sendc:
-			b, _ := msgpack.Marshal(message.Params)
-			events.SendMessage <- ZMQMessage{message.Method, b}
+			if b, err := marshal(message.Params); err == nil {
+				events.SendMessage <- ZMQMessage{message.Method, b}
+			} else {
+				info.Printf("Error encoding as msgpack: %v", message.Params)
+			}
 		case m := <-events.OnMethod:
 			switch m.Method {
 			case "stats_partial":

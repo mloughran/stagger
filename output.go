@@ -5,7 +5,6 @@ package main
 import (
 	"fmt"
 	zmq "github.com/pebbe/zmq3"
-	msgpack "github.com/ugorji/go-msgpack"
 	"log"
 	"sort"
 )
@@ -43,11 +42,13 @@ func RunOutput(complete_chan <-chan (*TimestampedStats), librato *Librato) {
 		// ZMQ pubsub
 		for key, value := range stats.Dists {
 			output_stat := OutputStat{stats.Timestamp, value}
-			b, _ := msgpack.Marshal(output_stat)
 
-			// TODO: Handle errors
-			pub.Send(key, zmq.SNDMORE) // Use stat name as channel?
-			pub.SendBytes(b, 0)
+			if b, err := marshal(output_stat); err == nil {
+				pub.Send(key, zmq.SNDMORE) // Use stat name as channel?
+				pub.SendBytes(b, 0)
+			} else {
+				info.Printf("Error encoding as msgpack: %v", output_stat)
+			}
 		}
 
 		// LIBRATO
