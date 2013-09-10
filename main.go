@@ -67,19 +67,24 @@ func main() {
 		output.Add(librato)
 	}
 
-	go output.Run(aggregator.output)
-
 	if *log_output {
 		stdout := NewStdOut()
 		output.Add(stdout)
 	}
 
-	go func() {
-		if *http_addr != "" {
+	if *http_addr != "" {
+		snapshot := NewSnapshot()
+		output.Add(snapshot)
+
+		go func() {
+			http.Handle("/snapshot.json", snapshot)
+
 			info.Printf("[main] HTTP debug server running on %v", *http_addr)
 			log.Println(http.ListenAndServe(*http_addr, nil))
-		}
-	}()
+		}()
+	}
+
+	go output.Run(aggregator.output)
 
 	info.Printf("[main] Stagger running")
 
