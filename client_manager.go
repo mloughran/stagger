@@ -12,13 +12,20 @@ type CompleteMessage struct {
 	Timestamp int64
 }
 
-func StartClientManager(ticker <-chan (time.Time), timeout int, regc <-chan (*Client), statsc chan<- (*Stats), ts_complete, ts_new chan<- (int64), on_shutdown <-chan (bool), aggregator *Aggregator) {
+type ClientManager struct {
+	add_client_c chan (*Client)
+	rem_client_c chan (*Client)
+}
+
+func NewClientManager() *ClientManager {
+	return &ClientManager{
+		make(chan (*Client)),
+		make(chan (*Client)),
+	}
+}
+
+func (self *ClientManager) Run(ticker <-chan (time.Time), timeout int, ts_complete, ts_new chan<- (int64), complete <-chan (CompleteMessage), aggregator *Aggregator) {
 	clients := make(map[int]*Client)
-
-	complete := make(chan CompleteMessage)
-
-	// Clients send a message on this channel when they go away
-	on_client_gone := make(chan int)
 
 	outstanding_stats := map[int64]int{}
 
@@ -32,21 +39,12 @@ func StartClientManager(ticker <-chan (time.Time), timeout int, regc <-chan (*Cl
 
 	for {
 		select {
-		case client := <-regc:
-			go client.Run(statsc, complete, on_client_gone)
+		case client := <-self.add_client_c:
+			clients[client.Id()] = client
 
-			clients[client.Id] = client
-			info.Printf("[cm] Added client id:%v (count: %v)", client.Id, len(clients))
-		case id := <-on_client_gone:
-			delete(clients, id)
-			info.Printf("[cm] Removed client id:%v (count: %v)", id, len(clients))
-			// TODO: Should also remove this client from the list of unreported
-			// clients, but this requires using more than a simple count
-		case <-on_shutdown:
-			info.Printf("[cm] Sending shutdown message to all clients")
-			for _, client := range clients {
-				client.Shutdown()
-			}
+		case client := <-self.rem_client_c:
+			delete(clients, client.Id())
+
 		case now = <-ticker:
 			ts = now.Unix()
 			ts_new <- ts
@@ -71,6 +69,7 @@ func StartClientManager(ticker <-chan (time.Time), timeout int, regc <-chan (*Cl
 			} else {
 				info.Printf("[cm] (ts:%v) No clients connected to survey", ts)
 			}
+
 		case ts = <-on_timeout:
 			if remaining, present := outstanding_stats[ts]; present {
 				info.Printf("[cm] (ts:%v) Survey timed out, %v clients yet to report", ts, remaining)
@@ -78,6 +77,7 @@ func StartClientManager(ticker <-chan (time.Time), timeout int, regc <-chan (*Cl
 				delete(outstanding_stats, ts)
 				ts_complete <- ts // TODO: Notify that it wasn't clean
 			}
+
 		case c := <-complete:
 			ts = c.Timestamp
 			if _, present := outstanding_stats[ts]; present {
@@ -94,4 +94,12 @@ func StartClientManager(ticker <-chan (time.Time), timeout int, regc <-chan (*Cl
 			}
 		}
 	}
+}
+
+func (self *ClientManager) AddClient(client interface{}) {
+	self.add_client_c <- client.(*Client)
+}
+
+func (self *ClientManager) RemoveClient(client interface{}) {
+	self.rem_client_c <- client.(*Client)
 }

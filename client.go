@@ -19,13 +19,15 @@ type message struct {
 }
 
 type Client struct {
-	Id    int
-	addr  string
-	name  string
-	sendc chan (message)
+	id       int
+	addr     string
+	name     string
+	sendc    chan (message)
+	statsc   chan<- (*Stats)
+	complete chan<- (CompleteMessage)
 }
 
-func NewClient(id int, addr string, meta string) *Client {
+func NewClient(id int, addr string, meta string, statsc chan<- (*Stats), complete chan<- (CompleteMessage)) *Client {
 	name := fmt.Sprintf("[client:%v-%v]", id, meta)
 	sendc := make(chan message)
 	return &Client{
@@ -33,7 +35,13 @@ func NewClient(id int, addr string, meta string) *Client {
 		addr,
 		name,
 		sendc,
+		statsc,
+		complete,
 	}
+}
+
+func (c *Client) Id() int {
+	return c.id
 }
 
 func (c *Client) RequestStats(ts int64) {
@@ -45,7 +53,7 @@ func (c *Client) Shutdown() {
 	c.sendc <- message{Method: "pair:shutdown"}
 }
 
-func (c *Client) Run(statsc chan<- (*Stats), complete chan<- (CompleteMessage), send_gone chan<- (int)) {
+func (c *Client) Run(send_gone chan<- (int)) {
 	debug.Print(c.name, "Connecting to ", c.addr)
 	events := NewZmqClient(c.addr)
 
@@ -53,7 +61,7 @@ func (c *Client) Run(statsc chan<- (*Stats), complete chan<- (CompleteMessage), 
 		var stats Stats
 		if err = unmarshal(data, &stats); err == nil {
 			ts = stats.Timestamp
-			statsc <- &stats
+			c.statsc <- &stats
 		} else {
 			info.Printf("Error decoding msgpack data: %v", data)
 		}
@@ -81,14 +89,14 @@ func (c *Client) Run(statsc chan<- (*Stats), complete chan<- (CompleteMessage), 
 				if ts, err = handleStats(m.Params); err != nil {
 					info.Printf("Error decoding stats_complete: %v", err)
 				} else {
-					complete <- CompleteMessage{c.Id, ts}
+					c.complete <- CompleteMessage{c.Id(), ts}
 				}
 			default:
 				info.Printf("Received unknown command %v", m.Method)
 			}
 		case <-events.OnClose:
 			debug.Print(c.name, "Connection to ", c.addr, " closed")
-			send_gone <- c.Id
+			send_gone <- c.Id()
 			return
 		}
 	}

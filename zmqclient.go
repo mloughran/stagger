@@ -15,7 +15,7 @@ type ZMQMessage struct {
 	Params []byte // TODO: Can we change to interface{} and pack here?
 }
 
-// Creates a Zmq client, runs it's gorouting, and returns the channels on
+// Creates a Zmq client, runs its goroutine, and returns the channels on
 // which you should communicate
 func NewZmqClient(addr string) ZmqClientEvents {
 	events := ZmqClientEvents{make(chan ZMQMessage), make(chan bool), make(chan ZMQMessage)}

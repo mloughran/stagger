@@ -29,7 +29,6 @@ const info debugger = true
 
 func main() {
 	hostname, _ := os.Hostname()
-
 	var source = flag.String("source", hostname, "source (for reporting)")
 	var interval = flag.Int("interval", 10, "stats interval (in seconds)")
 	var timeout = flag.Int("timeout", 1000, "receive timeout (in ms)")
@@ -37,22 +36,27 @@ func main() {
 	var librato_email = flag.String("librato_email", "", "librato email")
 	var librato_token = flag.String("librato_token", "", "librato token")
 	var http_addr = flag.String("http", "", "HTTP debugging address (e.g. ':8080')")
-
 	flag.Parse()
 
 	ts_complete := make(chan int64)
 	ts_new := make(chan int64)
 	on_shutdown := make(chan bool)
-
-	registraton := NewRegistration(*reg_addr)
-	go registraton.Run()
+	on_complete := make(chan CompleteMessage)
 
 	ticker := NewTicker(*interval)
 
 	aggregator := NewAggregator()
 	go aggregator.Run(ts_complete, ts_new)
 
-	go StartClientManager(ticker, *timeout, registraton.Registrations, aggregator.stats, ts_complete, ts_new, on_shutdown, aggregator)
+	client_manager := NewClientManager()
+	go client_manager.Run(ticker, *timeout, ts_complete, ts_new, on_complete, aggregator)
+
+	gen_client := func(id int, a string) PairClient {
+		return PairClient(NewClient(id, a, "", aggregator.stats, on_complete))
+	}
+
+	pair_server := NewPairServer(*reg_addr, on_shutdown)
+	go pair_server.Run(PairServerDelegate(client_manager), gen_client)
 
 	if len(*librato_email) > 0 && len(*librato_token) > 0 {
 		librato := NewLibrato(*source, *librato_email, *librato_token)
