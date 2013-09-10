@@ -33,6 +33,7 @@ func main() {
 	var interval = flag.Int("interval", 10, "stats interval (in seconds)")
 	var timeout = flag.Int("timeout", 1000, "receive timeout (in ms)")
 	var reg_addr = flag.String("registration", "tcp://127.0.0.1:5867", "address to which clients register")
+	var log_output = flag.Bool("log_output", true, "log aggregated data")
 	var librato_email = flag.String("librato_email", "", "librato email")
 	var librato_token = flag.String("librato_token", "", "librato token")
 	var http_addr = flag.String("http", "", "HTTP debugging address (e.g. ':8080')")
@@ -67,6 +68,11 @@ func main() {
 	}
 
 	go output.Run(aggregator.output)
+
+	if *log_output {
+		stdout := NewStdOut()
+		output.Add(stdout)
+	}
 
 	go func() {
 		if *http_addr != "" {

@@ -1,12 +1,9 @@
-// Output received aggregated data from the aggregator and exposes it to downstream stagger processes, and to any other process which wishes to subscribe to data via ZMQ
+// Output receives aggregated data from the aggregator and exposes it to downstream stagger processes, to any other process which wishes to subscribe to data via ZMQ, and to all configured outputters
 
 package main
 
 import (
-	"fmt"
 	zmq "github.com/pebbe/zmq3"
-	"log"
-	"sort"
 )
 
 type OutputStat struct {
@@ -32,20 +29,6 @@ func (o *Output) Run(complete_chan <-chan (*TimestampedStats)) {
 	pub.Bind("tcp://*:5563")
 
 	for stats := range complete_chan {
-		// Logging (temp)
-		// TODO: Extract into outputter
-		var heading = fmt.Sprintf("[output] (ts:%v) Aggregated data:\n", stats.Timestamp)
-
-		var output []string
-		for key, value := range stats.Counters {
-			output = append(output, fmt.Sprintf("%v: %.5g\n", key, value))
-		}
-		for key, value := range stats.Dists {
-			output = append(output, fmt.Sprintf("%v: %v\n", key, value))
-		}
-		sort.Strings(output)
-		log.Print(heading, output)
-
 		// ZMQ pubsub
 		// TODO: Extract as outputter
 		for key, value := range stats.Dists {
