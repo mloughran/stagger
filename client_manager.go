@@ -71,7 +71,7 @@ func (self *ClientManager) Run(ticker <-chan (time.Time), timeout int, ts_comple
 			}
 
 		case ts = <-on_timeout:
-			if remaining, present := outstanding_stats[ts]; present {
+			if remaining, ok := outstanding_stats[ts]; ok {
 				info.Printf("[cm] (ts:%v) Survey timed out, %v clients yet to report", ts, remaining)
 				aggregator.Count(ts, "stagger.timeouts", Count(remaining))
 				delete(outstanding_stats, ts)
@@ -80,7 +80,7 @@ func (self *ClientManager) Run(ticker <-chan (time.Time), timeout int, ts_comple
 
 		case c := <-complete:
 			ts = c.Timestamp
-			if _, present := outstanding_stats[ts]; present {
+			if _, ok := outstanding_stats[ts]; ok {
 				outstanding_stats[ts] -= 1
 
 				// Record the time for this client to complete survey in ms

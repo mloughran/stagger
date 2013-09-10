@@ -28,7 +28,7 @@ func (self TimestampedStats) AddCount(s StatCount) {
 
 func (self TimestampedStats) AddValue(s StatValue) {
 	self.Empty = false
-	if d, present := self.Dists[s.Name]; present {
+	if d, ok := self.Dists[s.Name]; ok {
 		d.AddEntry(s.Value)
 	} else {
 		self.Dists[s.Name] = NewDistFromValue(s.Value)
@@ -38,7 +38,7 @@ func (self TimestampedStats) AddValue(s StatValue) {
 func (self TimestampedStats) AddDist(s StatDist) {
 	self.Empty = false
 	dist := ContstructDist(s.Dist)
-	if d, present := self.Dists[s.Name]; present {
+	if d, ok := self.Dists[s.Name]; ok {
 		d.Add(dist)
 	} else {
 		self.Dists[s.Name] = dist
