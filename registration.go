@@ -2,6 +2,7 @@ package main
 
 import (
 	zmq "github.com/pebbe/zmq3"
+	"os"
 )
 
 type Registration struct {
@@ -16,8 +17,13 @@ func NewRegistration(address string) *Registration {
 func (self *Registration) Run() {
 	pull, _ := zmq.NewSocket(zmq.PULL)
 	defer pull.Close()
-	pull.Bind(self.address)
-	debug.Printf("[registration] Bound to %v", self.address)
+
+	if err := pull.Bind(self.address); err != nil {
+		info.Printf("[registration] Error binding to %v: %v", self.address, err)
+		os.Exit(1)
+	} else {
+		debug.Printf("[registration] Bound to %v", self.address)
+	}
 
 	for {
 		if parts, err := pull.RecvMessage(0); err != nil {
