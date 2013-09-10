@@ -44,13 +44,13 @@ func (c *Client) Id() int {
 	return c.id
 }
 
-func (c *Client) RequestStats(ts int64) {
-	// TODO: Make Timestamp lowercase
-	c.sendc <- message{"report_all", map[string]interface{}{"Timestamp": ts}}
+func (c *Client) Send(m string, p map[string]interface{}) {
+	c.sendc <- message{m, p}
 }
 
-func (c *Client) Shutdown() {
-	c.sendc <- message{Method: "pair:shutdown"}
+func (c *Client) RequestStats(ts int64) {
+	// TODO: Make Timestamp lowercase
+	c.Send("report_all", map[string]interface{}{"Timestamp": ts})
 }
 
 func (c *Client) Run(send_gone chan<- (int)) {

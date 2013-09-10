@@ -9,9 +9,8 @@ type PairServer struct {
 
 type PairClient interface {
 	Id() int
-	Run(chan<- int)
-	Shutdown()
-	// Send([]byte) TODO
+	Run(gone chan<- int)
+	Send(m string, p map[string]interface{})
 }
 
 type PairServerDelegate interface {
@@ -52,7 +51,7 @@ func (self *PairServer) Run(d PairServerDelegate, g clientGen) {
 		case <-self.on_shutdown:
 			info.Printf("[cm] Sending shutdown message to all clients")
 			for _, client := range clients {
-				client.Shutdown()
+				client.Send("pair:shutdown", nil)
 			}
 		}
 	}
