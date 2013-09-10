@@ -14,19 +14,26 @@ type OutputStat struct {
 	Dist      *Dist
 }
 
-func RunOutput(complete_chan <-chan (*TimestampedStats), librato *Librato) {
+type Outputter interface {
+	Send(*TimestampedStats)
+}
+
+type Output struct {
+	outputs []Outputter
+}
+
+func NewOutput() *Output {
+	return &Output{[]Outputter{}}
+}
+
+func (o *Output) Run(complete_chan <-chan (*TimestampedStats)) {
 	pub, _ := zmq.NewSocket(zmq.PUB)
 
 	pub.Bind("tcp://*:5563")
 
-	// Using a buffered channel to isolate slowness posting to librato
-	librato_chan := make(chan *TimestampedStats, 100)
-	if librato != nil {
-		go librato.Run(librato_chan)
-	}
-
 	for stats := range complete_chan {
 		// Logging (temp)
+		// TODO: Extract into outputter
 		var heading = fmt.Sprintf("[output] (ts:%v) Aggregated data:\n", stats.Timestamp)
 
 		var output []string
@@ -40,6 +47,7 @@ func RunOutput(complete_chan <-chan (*TimestampedStats), librato *Librato) {
 		log.Print(heading, output)
 
 		// ZMQ pubsub
+		// TODO: Extract as outputter
 		for key, value := range stats.Dists {
 			output_stat := OutputStat{stats.Timestamp, value}
 
@@ -51,9 +59,12 @@ func RunOutput(complete_chan <-chan (*TimestampedStats), librato *Librato) {
 			}
 		}
 
-		// LIBRATO
-		if librato != nil {
-			librato_chan <- stats
+		for _, op := range o.outputs {
+			op.Send(stats)
 		}
 	}
+}
+
+func (o *Output) Add(op Outputter) {
+	o.outputs = append(o.outputs, op)
 }

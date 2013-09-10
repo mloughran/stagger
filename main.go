@@ -58,12 +58,15 @@ func main() {
 	pair_server := NewPairServer(*reg_addr, on_shutdown)
 	go pair_server.Run(PairServerDelegate(client_manager), gen_client)
 
+	output := NewOutput()
+
 	if len(*librato_email) > 0 && len(*librato_token) > 0 {
 		librato := NewLibrato(*source, *librato_email, *librato_token)
-		go RunOutput(aggregator.output, librato)
-	} else {
-		go RunOutput(aggregator.output, nil)
+		go librato.Run()
+		output.Add(librato)
 	}
+
+	go output.Run(aggregator.output)
 
 	go func() {
 		if *http_addr != "" {
