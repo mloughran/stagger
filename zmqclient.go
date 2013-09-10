@@ -60,10 +60,11 @@ func RunZmqClient(addr string, events ZmqClientEvents) {
 			} else {
 				s := string(parts[0])
 
-				if s == "ping" {
+				// Non-prefixed ping & ping are deprecated. TODO: remove
+				if s == "ping" || s == "pair:ping" {
 					debug.Print("[zmqclient] Received ping, sending pong")
-					events.SendMessage <- ZMQMessage{"pong", []byte("")}
-				} else if s == "pong" {
+					events.SendMessage <- ZMQMessage{"pair:pong", []byte("")}
+				} else if s == "pong" || s == "pair:pong" {
 					debug.Print("[zmqclient] Received pong")
 					// Do nothing
 				} else {
