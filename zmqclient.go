@@ -41,6 +41,9 @@ func RunZmqClient(addr string, events ZmqClientEvents) {
 	sock.SetRcvtimeo(61e9) // 61s
 	closed := false
 
+	// Used to signal shutdown to the main goroutine
+	sig_shutdown := make(chan bool)
+
 	// TODO: This isn't correct because sock not threadsafe...
 	go func() {
 		defer func() {
@@ -52,6 +55,7 @@ func RunZmqClient(addr string, events ZmqClientEvents) {
 			parts, err := sock.RecvMessageBytes(0)
 
 			if closed {
+				// Returns from this (zmq reading) goroutine
 				return
 			}
 
@@ -67,6 +71,9 @@ func RunZmqClient(addr string, events ZmqClientEvents) {
 				} else if s == "pong" || s == "pair:pong" {
 					debug.Print("[zmqclient] Received pong")
 					// Do nothing
+				} else if s == "pair:shutdown" {
+					debug.Print("[zmqclient] Received shutdown")
+					sig_shutdown <- true
 				} else {
 					if len(parts) != 2 {
 						info.Printf("[zmqclient] Unepected message %v with %v parts", s, len(parts))
@@ -85,22 +92,25 @@ func RunZmqClient(addr string, events ZmqClientEvents) {
 	}()
 
 	for {
-		msg := <-events.SendMessage
-
-		// Note: I considered using sock.SendMessage but unfortunately that
-		// doesn't support arbitrary flags, and it basically does this anway.
-
-		// Set DONTWAIT so that Send doesn't block when HWM is reached
-
-		// In case of an error and return, an OnClose will be sent by defer
-
-		if _, err := sock.Send(msg.Method, zmq.DONTWAIT|zmq.SNDMORE); err != nil {
-			info.Printf("[zmqclient] Closing %v after err: %v", addr, err)
+		select {
+		case <-sig_shutdown:
 			return
-		}
-		if _, err := sock.SendBytes(msg.Params, zmq.DONTWAIT); err != nil {
-			info.Printf("[zmqclient] Closing %v after err: %v", addr, err)
-			return
+		case msg := <-events.SendMessage:
+			// Note: I considered using sock.SendMessage but unfortunately that
+			// doesn't support arbitrary flags, and it basically does this anway.
+
+			// Set DONTWAIT so that Send doesn't block when HWM is reached
+
+			// In case of an error and return, an OnClose will be sent by defer
+
+			if _, err := sock.Send(msg.Method, zmq.DONTWAIT|zmq.SNDMORE); err != nil {
+				info.Printf("[zmqclient] Closing %v after err: %v", addr, err)
+				return
+			}
+			if _, err := sock.SendBytes(msg.Params, zmq.DONTWAIT); err != nil {
+				info.Printf("[zmqclient] Closing %v after err: %v", addr, err)
+				return
+			}
 		}
 	}
 }
