@@ -52,8 +52,8 @@ func main() {
 	client_manager := NewClientManager()
 	go client_manager.Run(ticker, *timeout, ts_complete, ts_new, on_complete, aggregator)
 
-	gen_client := func(id int, a string) PairClient {
-		return PairClient(NewClient(id, a, "", aggregator.stats, on_complete))
+	gen_client := func(id int, pc *PairConn) Pairable {
+		return Pairable(NewClient(id, pc, "", aggregator.stats, on_complete))
 	}
 
 	pair_server := NewPairServer(*reg_addr, on_shutdown)

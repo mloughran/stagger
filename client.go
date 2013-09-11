@@ -20,19 +20,19 @@ type message struct {
 
 type Client struct {
 	id       int
-	addr     string
+	pc       *PairConn
 	name     string
 	sendc    chan (message)
 	statsc   chan<- (*Stats)
 	complete chan<- (CompleteMessage)
 }
 
-func NewClient(id int, addr string, meta string, statsc chan<- (*Stats), complete chan<- (CompleteMessage)) *Client {
+func NewClient(id int, pc *PairConn, meta string, statsc chan<- (*Stats), complete chan<- (CompleteMessage)) *Client {
 	name := fmt.Sprintf("[client:%v-%v]", id, meta)
 	sendc := make(chan message)
 	return &Client{
 		id,
-		addr,
+		pc,
 		name,
 		sendc,
 		statsc,
@@ -54,9 +54,6 @@ func (c *Client) RequestStats(ts int64) {
 }
 
 func (c *Client) Run(send_gone chan<- (int)) {
-	debug.Print(c.name, "Connecting to ", c.addr)
-	events := NewZmqClient(c.addr)
-
 	handleStats := func(data []byte) (ts int64, err error) {
 		var stats Stats
 		if err = unmarshal(data, &stats); err == nil {
@@ -75,11 +72,11 @@ func (c *Client) Run(send_gone chan<- (int)) {
 		select {
 		case message := <-c.sendc:
 			if b, err := marshal(message.Params); err == nil {
-				events.SendMessage <- ZMQMessage{message.Method, b}
+				c.pc.Send(message.Method, b)
 			} else {
 				info.Printf("Error encoding as msgpack: %v", message.Params)
 			}
-		case m := <-events.OnMethod:
+		case m := <-c.pc.OnMethod:
 			switch m.Method {
 			case "stats_partial":
 				if _, err = handleStats(m.Params); err != nil {
@@ -94,8 +91,7 @@ func (c *Client) Run(send_gone chan<- (int)) {
 			default:
 				info.Printf("Received unknown command %v", m.Method)
 			}
-		case <-events.OnClose:
-			debug.Print(c.name, "Connection to ", c.addr, " closed")
+		case <-c.pc.OnClose:
 			send_gone <- c.Id()
 			return
 		}

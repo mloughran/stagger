@@ -4,29 +4,37 @@ import (
 	zmq "github.com/pebbe/zmq3"
 )
 
-type ZmqClientEvents struct {
-	OnMethod    chan ZMQMessage
+type PairConn struct {
+	OnMethod    chan zmqMessage
 	OnClose     chan (bool)
-	SendMessage chan ZMQMessage
+	sendMessage chan zmqMessage
+	pair        *zmq.Socket
+	addr        string
 }
 
-type ZMQMessage struct {
+type zmqMessage struct {
 	Method string
 	Params []byte // TODO: Can we change to interface{} and pack here?
 }
 
 // Creates a Zmq client, runs its goroutine, and returns the channels on
 // which you should communicate
-func NewZmqClient(addr string) ZmqClientEvents {
-	events := ZmqClientEvents{make(chan ZMQMessage), make(chan bool), make(chan ZMQMessage)}
-
-	go RunZmqClient(addr, events)
-
-	return events
+func NewPairConn() *PairConn {
+	sock, _ := zmq.NewSocket(zmq.PAIR)
+	return &PairConn{make(chan zmqMessage), make(chan bool), make(chan zmqMessage), sock, ""}
 }
 
-func RunZmqClient(addr string, events ZmqClientEvents) {
-	sock, _ := zmq.NewSocket(zmq.PAIR)
+func (z *PairConn) Connect(addr string) {
+	z.addr = addr
+	z.pair.Connect(addr)
+}
+
+func (z *PairConn) Send(method string, params []byte) {
+	z.sendMessage <- zmqMessage{method, params}
+}
+
+func (z *PairConn) Run() {
+	sock := z.pair
 
 	// Set a hwm of 1 - it's pointless to buffer requests for stats, and this
 	// means that we get an error when we try to send if the client has gone
@@ -34,8 +42,6 @@ func RunZmqClient(addr string, events ZmqClientEvents) {
 
 	// Removing because it causes crash... (due to read goroutine)
 	// defer sock.Close()
-
-	sock.Connect(addr)
 
 	// These are used so that we can stop the reading goroutine - hacky...
 	sock.SetRcvtimeo(61e9) // 61s
@@ -67,7 +73,7 @@ func RunZmqClient(addr string, events ZmqClientEvents) {
 				// Non-prefixed ping & ping are deprecated. TODO: remove
 				if s == "ping" || s == "pair:ping" {
 					debug.Print("[zmqclient] Received ping, sending pong")
-					events.SendMessage <- ZMQMessage{"pair:pong", []byte("")}
+					z.Send("pair:pong", []byte(""))
 				} else if s == "pong" || s == "pair:pong" {
 					debug.Print("[zmqclient] Received pong")
 					// Do nothing
@@ -79,7 +85,7 @@ func RunZmqClient(addr string, events ZmqClientEvents) {
 						info.Printf("[zmqclient] Unepected message %v with %v parts", s, len(parts))
 					} else {
 						debug.Printf("[zmqclient] Received message %s", s)
-						events.OnMethod <- ZMQMessage{s, parts[1]}
+						z.OnMethod <- zmqMessage{s, parts[1]}
 					}
 				}
 			}
@@ -88,14 +94,14 @@ func RunZmqClient(addr string, events ZmqClientEvents) {
 
 	defer func() {
 		closed = true
-		events.OnClose <- true
+		z.OnClose <- true
 	}()
 
 	for {
 		select {
 		case <-sig_shutdown:
 			return
-		case msg := <-events.SendMessage:
+		case msg := <-z.sendMessage:
 			// Note: I considered using sock.SendMessage but unfortunately that
 			// doesn't support arbitrary flags, and it basically does this anway.
 
@@ -104,11 +110,11 @@ func RunZmqClient(addr string, events ZmqClientEvents) {
 			// In case of an error and return, an OnClose will be sent by defer
 
 			if _, err := sock.Send(msg.Method, zmq.DONTWAIT|zmq.SNDMORE); err != nil {
-				info.Printf("[zmqclient] Closing %v after err: %v", addr, err)
+				info.Printf("[zmqclient] Closing %v after err: %v", z.addr, err)
 				return
 			}
 			if _, err := sock.SendBytes(msg.Params, zmq.DONTWAIT); err != nil {
-				info.Printf("[zmqclient] Closing %v after err: %v", addr, err)
+				info.Printf("[zmqclient] Closing %v after err: %v", z.addr, err)
 				return
 			}
 		}
