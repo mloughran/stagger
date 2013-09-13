@@ -10,14 +10,14 @@ type Aggregator struct {
 	passed   *TimestampedStats
 	passedTs int64
 	next     *TimestampedStats
-	stats    chan (*Stats)
+	Stats    chan (*Stats)
 }
 
 func NewAggregator() *Aggregator {
 	return &Aggregator{
 		output: make(chan *TimestampedStats),
 		next:   NewTimestampedStats(-1),
-		stats:  make(chan *Stats),
+		Stats:  make(chan *Stats),
 	}
 }
 
@@ -26,7 +26,7 @@ func (self *Aggregator) Run(ts_complete <-chan (int64), ts_new <-chan (int64)) {
 		select {
 		case ts := <-ts_new:
 			self.newInterval(ts)
-		case stats := <-self.stats:
+		case stats := <-self.Stats:
 			self.feed(stats)
 		case ts := <-ts_complete:
 			self.report(ts)
@@ -73,14 +73,14 @@ func (self *Aggregator) report(ts int64) {
 
 // TODO: Not sure about these functions
 func (self *Aggregator) Count(ts int64, name string, value Count) {
-	self.stats <- &Stats{
+	self.Stats <- &Stats{
 		Timestamp: ts,
 		Counts:    []StatCount{StatCount{name, float64(value)}},
 	}
 }
 
 func (self *Aggregator) Value(ts int64, name string, value float64) {
-	self.stats <- &Stats{
+	self.Stats <- &Stats{
 		Timestamp: ts,
 		Values:    []StatValue{StatValue{name, value}},
 	}
