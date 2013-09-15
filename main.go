@@ -1,6 +1,7 @@
 package main
 
 import (
+	"./pair"
 	"flag"
 	"log"
 	"net/http"
@@ -52,12 +53,12 @@ func main() {
 	client_manager := NewClientManager()
 	go client_manager.Run(ticker, *timeout, ts_complete, ts_new, on_complete, aggregator)
 
-	gen_client := func(id int, pc *PairConn) Pairable {
-		return Pairable(NewClient(id, pc, "", aggregator.Stats, on_complete))
+	gen_client := func(id int, pc *pair.PairConn) pair.Pairable {
+		return pair.Pairable(NewClient(id, pc, "", aggregator.Stats, on_complete))
 	}
 
-	pair_server := NewPairServer(*reg_addr, on_shutdown)
-	go pair_server.Run(PairServerDelegate(client_manager), gen_client)
+	pair_server := pair.NewPairServer(*reg_addr, on_shutdown)
+	go pair_server.Run(pair.PairServerDelegate(client_manager), gen_client)
 
 	output := NewOutput()
 

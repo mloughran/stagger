@@ -1,6 +1,6 @@
 // Exposes a registration channel, creates client objects, keeps track of all existing clients, dedupes existing registrations
 
-package main
+package pair
 
 type PairServer struct {
 	reg_addr    string

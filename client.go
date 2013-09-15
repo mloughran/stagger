@@ -1,6 +1,7 @@
 package main
 
 import (
+	"./pair"
 	"fmt"
 )
 
@@ -20,14 +21,14 @@ type message struct {
 
 type Client struct {
 	id       int
-	pc       *PairConn
+	pc       *pair.PairConn
 	name     string
 	sendc    chan (message)
 	statsc   chan<- (*Stats)
 	complete chan<- (CompleteMessage)
 }
 
-func NewClient(id int, pc *PairConn, meta string, statsc chan<- (*Stats), complete chan<- (CompleteMessage)) *Client {
+func NewClient(id int, pc *pair.PairConn, meta string, statsc chan<- (*Stats), complete chan<- (CompleteMessage)) *Client {
 	name := fmt.Sprintf("[client:%v-%v]", id, meta)
 	sendc := make(chan message)
 	return &Client{

@@ -1,4 +1,4 @@
-package main
+package pair
 
 import (
 	zmq "github.com/pebbe/zmq3"
