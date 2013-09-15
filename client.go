@@ -21,14 +21,14 @@ type message struct {
 
 type Client struct {
 	id       int
-	pc       *pair.PairConn
+	pc       *pair.Conn
 	name     string
 	sendc    chan (message)
 	statsc   chan<- (*Stats)
 	complete chan<- (CompleteMessage)
 }
 
-func NewClient(id int, pc *pair.PairConn, meta string, statsc chan<- (*Stats), complete chan<- (CompleteMessage)) *Client {
+func NewClient(id int, pc *pair.Conn, meta string, statsc chan<- (*Stats), complete chan<- (CompleteMessage)) *Client {
 	name := fmt.Sprintf("[client:%v-%v]", id, meta)
 	sendc := make(chan message)
 	return &Client{

@@ -4,7 +4,10 @@
 
 package main
 
-import "time"
+import (
+	"./pair"
+	"time"
+)
 
 // Sent by clients when they have finished receiving data for a timestamp
 type CompleteMessage struct {
@@ -15,16 +18,20 @@ type CompleteMessage struct {
 type ClientManager struct {
 	add_client_c chan (*Client)
 	rem_client_c chan (*Client)
+	onComplete   chan (CompleteMessage)
+	agg          *Aggregator
 }
 
-func NewClientManager() *ClientManager {
+func NewClientManager(a *Aggregator) *ClientManager {
 	return &ClientManager{
 		make(chan (*Client)),
 		make(chan (*Client)),
+		make(chan CompleteMessage),
+		a,
 	}
 }
 
-func (self *ClientManager) Run(ticker <-chan (time.Time), timeout int, ts_complete, ts_new chan<- (int64), complete <-chan (CompleteMessage), aggregator *Aggregator) {
+func (self *ClientManager) Run(ticker <-chan (time.Time), timeout int, ts_complete, ts_new chan<- (int64)) {
 	clients := make(map[int]*Client)
 
 	outstanding_stats := map[int64]int{}
@@ -57,7 +64,7 @@ func (self *ClientManager) Run(ticker <-chan (time.Time), timeout int, ts_comple
 				outstanding_stats[ts] = len(clients)
 
 				// Record metric for number registered clients
-				aggregator.Count(ts, "stagger.clients", Count(len(clients)))
+				self.agg.Count(ts, "stagger.clients", Count(len(clients)))
 
 				for _, client := range clients {
 					client.RequestStats(ts)
@@ -75,19 +82,19 @@ func (self *ClientManager) Run(ticker <-chan (time.Time), timeout int, ts_comple
 		case ts = <-on_timeout:
 			if remaining, ok := outstanding_stats[ts]; ok {
 				info.Printf("[cm] (ts:%v) Survey timed out, %v clients yet to report", ts, remaining)
-				aggregator.Count(ts, "stagger.timeouts", Count(remaining))
+				self.agg.Count(ts, "stagger.timeouts", Count(remaining))
 				delete(outstanding_stats, ts)
 				ts_complete <- ts // TODO: Notify that it wasn't clean
 			}
 
-		case c := <-complete:
+		case c := <-self.onComplete:
 			ts = c.Timestamp
 			if _, ok := outstanding_stats[ts]; ok {
 				outstanding_stats[ts] -= 1
 
 				// Record the time for this client to complete survey in ms
 				latency = float64(time.Now().UnixNano()-ts*1000000000) / 1000000
-				aggregator.Value(ts, "stagger.survey_latency", latency)
+				self.agg.Value(ts, "stagger.survey_latency", latency)
 
 				if outstanding_stats[ts] == 0 {
 					delete(outstanding_stats, ts)
@@ -104,4 +111,8 @@ func (self *ClientManager) AddClient(client interface{}) {
 
 func (self *ClientManager) RemoveClient(client interface{}) {
 	self.rem_client_c <- client.(*Client)
+}
+
+func (self *ClientManager) NewClient(id int, pc *pair.Conn) pair.Pairable {
+	return pair.Pairable(NewClient(id, pc, "", self.agg.Stats, self.onComplete))
 }

@@ -1,3 +1,7 @@
+/*
+	Allows clients to register with a server and sets up a ZMQ pair connection
+	between the two.
+*/
 package pair
 
 import "log"

@@ -43,22 +43,17 @@ func main() {
 	ts_complete := make(chan int64)
 	ts_new := make(chan int64)
 	on_shutdown := make(chan bool)
-	on_complete := make(chan CompleteMessage)
 
 	ticker := NewTicker(*interval)
 
 	aggregator := NewAggregator()
 	go aggregator.Run(ts_complete, ts_new)
 
-	client_manager := NewClientManager()
-	go client_manager.Run(ticker, *timeout, ts_complete, ts_new, on_complete, aggregator)
+	client_manager := NewClientManager(aggregator)
+	go client_manager.Run(ticker, *timeout, ts_complete, ts_new)
 
-	gen_client := func(id int, pc *pair.PairConn) pair.Pairable {
-		return pair.Pairable(NewClient(id, pc, "", aggregator.Stats, on_complete))
-	}
-
-	pair_server := pair.NewPairServer(*reg_addr, on_shutdown)
-	go pair_server.Run(pair.PairServerDelegate(client_manager), gen_client)
+	pair_server := pair.NewServer(*reg_addr, on_shutdown, pair.ServerDelegate(client_manager))
+	go pair_server.Run()
 
 	output := NewOutput()
 

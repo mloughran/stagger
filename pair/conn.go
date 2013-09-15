@@ -4,7 +4,7 @@ import (
 	zmq "github.com/pebbe/zmq3"
 )
 
-type PairConn struct {
+type Conn struct {
 	OnMethod    chan zmqMessage
 	OnClose     chan (bool)
 	sendMessage chan zmqMessage
@@ -14,26 +14,30 @@ type PairConn struct {
 
 type zmqMessage struct {
 	Method string
-	Params []byte // TODO: Can we change to interface{} and pack here?
+	Params []byte
 }
 
-// Creates a Zmq client, runs its goroutine, and returns the channels on
-// which you should communicate
-func NewPairConn() *PairConn {
+// NewConn creates a Conn(ection) which includes callback channels on which you
+// must select.
+func NewConn() *Conn {
 	sock, _ := zmq.NewSocket(zmq.PAIR)
-	return &PairConn{make(chan zmqMessage), make(chan bool), make(chan zmqMessage), sock, ""}
+	return &Conn{make(chan zmqMessage), make(chan bool), make(chan zmqMessage), sock, ""}
 }
 
-func (z *PairConn) Connect(addr string) {
+// Connnect the underlying pair connection to the given address
+func (z *Conn) Connect(addr string) {
 	z.addr = addr
 	z.pair.Connect(addr)
 }
 
-func (z *PairConn) Send(method string, params []byte) {
+// Send a message
+func (z *Conn) Send(method string, params []byte) {
 	z.sendMessage <- zmqMessage{method, params}
 }
 
-func (z *PairConn) Run() {
+// Run starts reading on the pair connection, and sending messages.
+// Requires a background goroutine for reading.
+func (z *Conn) Run() {
 	sock := z.pair
 
 	// Set a hwm of 1 - it's pointless to buffer requests for stats, and this

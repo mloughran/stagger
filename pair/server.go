@@ -2,9 +2,10 @@
 
 package pair
 
-type PairServer struct {
+type Server struct {
 	reg_addr    string
 	on_shutdown chan bool
+	ServerDelegate
 }
 
 type Pairable interface {
@@ -12,18 +13,17 @@ type Pairable interface {
 	Send(m string, p map[string]interface{})
 }
 
-type PairServerDelegate interface {
+type ServerDelegate interface {
 	AddClient(interface{})
 	RemoveClient(interface{})
+	NewClient(id int, pc *Conn) Pairable
 }
 
-func NewPairServer(reg_addr string, on_shutdown chan bool) *PairServer {
-	return &PairServer{reg_addr, on_shutdown}
+func NewServer(reg_addr string, on_shutdown chan bool, d ServerDelegate) *Server {
+	return &Server{reg_addr, on_shutdown, d}
 }
 
-type clientGen func(id int, pc *PairConn) Pairable
-
-func (self *PairServer) Run(d PairServerDelegate, g clientGen) {
+func (self *Server) Run() {
 	registraton := NewRegistration(self.reg_addr)
 	go registraton.Run()
 
@@ -37,19 +37,19 @@ func (self *PairServer) Run(d PairServerDelegate, g clientGen) {
 		select {
 		case addr := <-registraton.Registrations:
 			debug.Print("Connecting to ", addr)
-			pc := NewPairConn()
+			pc := NewConn()
 			pc.Connect(addr) // TODO: Error checking
 			go pc.Run()
 
 			idIncr += 1
-			client := g(idIncr, pc)
+			client := self.NewClient(idIncr, pc)
 			go client.Run(on_client_gone)
 
 			clients[idIncr] = client
-			d.AddClient(client)
+			self.AddClient(client)
 
 		case id := <-on_client_gone:
-			d.RemoveClient(clients[id])
+			self.RemoveClient(clients[id])
 			delete(clients, id)
 
 		case <-self.on_shutdown:
