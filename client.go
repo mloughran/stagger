@@ -30,7 +30,7 @@ type Client struct {
 
 func NewClient(id int, pc *pair.Conn, meta string, statsc chan<- (*Stats), complete chan<- (CompleteMessage)) *Client {
 	name := fmt.Sprintf("[client:%v-%v]", id, meta)
-	sendc := make(chan message)
+	sendc := make(chan message, 1)
 	return &Client{
 		id,
 		pc,
