@@ -47,12 +47,12 @@ func (self *ClientManager) Run(ticker <-chan (time.Time), timeout int, ts_comple
 	for {
 		select {
 		case client := <-self.add_client_c:
-			info.Printf("[cm] Added client id:%v (count: %v)", client.Id(), len(clients))
 			clients[client.Id()] = client
+			info.Printf("[cm] Added client id:%v (count: %v)", client.Id(), len(clients))
 
 		case client := <-self.rem_client_c:
-			info.Printf("[cm] Removed client id:%v (count: %v)", client.Id(), len(clients))
 			delete(clients, client.Id())
+			info.Printf("[cm] Removed client id:%v (count: %v)", client.Id(), len(clients))
 
 		case now = <-ticker:
 			ts = now.Unix()
