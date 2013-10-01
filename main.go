@@ -9,7 +9,6 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
 )
 
 type debugger bool
@@ -43,7 +42,6 @@ func main() {
 
 	ts_complete := make(chan int64)
 	ts_new := make(chan int64)
-	on_shutdown := make(chan bool)
 
 	ticker := NewTicker(*interval)
 
@@ -53,7 +51,7 @@ func main() {
 	client_manager := NewClientManager(aggregator)
 	go client_manager.Run(ticker, *timeout, ts_complete, ts_new)
 
-	pair_server := pair.NewServer(*reg_addr, on_shutdown, pair.ServerDelegate(client_manager))
+	pair_server := pair.NewServer(*reg_addr, pair.ServerDelegate(client_manager))
 	go pair_server.Run()
 
 	output := NewOutput()
@@ -89,8 +87,6 @@ func main() {
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 	<-c
-	on_shutdown <- true
-	// TODO: Otherwise on_shutdown doesn't happen - why?
-	<-time.After(1 * time.Millisecond)
+	pair_server.Shutdown()
 	info.Print("[main] Exiting cleanly")
 }

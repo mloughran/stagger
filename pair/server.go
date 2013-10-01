@@ -2,10 +2,15 @@
 
 package pair
 
+import (
+	"time"
+)
+
 type Server struct {
-	reg_addr    string
-	on_shutdown chan bool
+	reg_addr string
 	ServerDelegate
+	sigShutdown chan bool
+	didShutdown chan bool
 }
 
 type Pairable interface {
@@ -19,23 +24,23 @@ type ServerDelegate interface {
 	NewClient(id int, pc *Conn) Pairable
 }
 
-func NewServer(reg_addr string, on_shutdown chan bool, d ServerDelegate) *Server {
-	return &Server{reg_addr, on_shutdown, d}
+func NewServer(reg_addr string, d ServerDelegate) *Server {
+	return &Server{reg_addr, d, make(chan bool), make(chan bool)}
 }
 
 func (self *Server) Run() {
-	registraton := NewRegistration(self.reg_addr)
-	go registraton.Run()
+	registration := NewRegistration(self.reg_addr)
+	go registration.Run()
 
 	idIncr := 0
 	clients := make(map[int]Pairable)
 
 	// Clients send a message on this channel when they go away
-	on_client_gone := make(chan int)
+	clientDidClose := make(chan int)
 
 	for {
 		select {
-		case addr := <-registraton.Registrations:
+		case addr := <-registration.Registrations:
 			debug.Print("Connecting to ", addr)
 			pc := NewConn()
 			pc.Connect(addr) // TODO: Error checking
@@ -43,20 +48,37 @@ func (self *Server) Run() {
 
 			idIncr += 1
 			client := self.NewClient(idIncr, pc)
-			go client.Run(on_client_gone)
+			go client.Run(clientDidClose)
 
 			clients[idIncr] = client
 			self.AddClient(client)
 
-		case id := <-on_client_gone:
+		case id := <-clientDidClose:
 			self.RemoveClient(clients[id])
 			delete(clients, id)
 
-		case <-self.on_shutdown:
-			info.Printf("[cm] Sending shutdown message to all clients")
+		case <-self.sigShutdown:
+			info.Printf("[pair-server] Shutting down registration")
+			registration.Shutdown()
+
+			info.Printf("[pair-server] Sending shutdown message to all clients")
 			for _, client := range clients {
 				client.Send("pair:shutdown", nil)
 			}
+			// Needs time to send shutdown - 1ms was brittle, 50ms is generous
+			// TODO: Find a way to do this which doesn't rely on timing
+			<-time.After(50 * time.Millisecond)
+			self.didShutdown <- true
 		}
 	}
+}
+
+// Shutdown is a blocking call which
+// * closes the registration channel cleanly,
+// * then signals all client connections to shutdown
+func (s *Server) Shutdown() {
+	debug.Print("[pair-server] willClose")
+	s.sigShutdown <- true
+	<-s.didShutdown
+	debug.Print("[pair-server] didClose")
 }
