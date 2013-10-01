@@ -21,6 +21,13 @@ type zmqMessage struct {
 // must select.
 func NewConn() *Conn {
 	sock, _ := zmq.NewSocket(zmq.PAIR)
+
+	// Set a HWM to force an error when sending, thereby detecting that the
+	// client has gone away
+	if err := sock.SetSndhwm(1); err != nil {
+		info.Printf("[pair] Error setting HWM: %v", err)
+	}
+
 	return &Conn{make(chan zmqMessage), make(chan bool), make(chan zmqMessage), sock, ""}
 }
 
@@ -39,10 +46,6 @@ func (z *Conn) Send(method string, params []byte) {
 // Requires a background goroutine for reading.
 func (z *Conn) Run() {
 	sock := z.pair
-
-	// Set a hwm of 1 - it's pointless to buffer requests for stats, and this
-	// means that we get an error when we try to send if the client has gone
-	sock.SetSndhwm(1)
 
 	// Removing because it causes crash... (due to read goroutine)
 	// defer sock.Close()
