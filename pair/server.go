@@ -41,9 +41,8 @@ func (self *Server) Run() {
 	for {
 		select {
 		case addr := <-registration.Registrations:
-			debug.Print("Connecting to ", addr)
 			pc := NewConn()
-			pc.Connect(addr) // TODO: Error checking
+			pc.ShouldConnect(addr)
 			go pc.Run()
 
 			idIncr += 1
