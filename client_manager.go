@@ -102,9 +102,6 @@ func (self *ClientManager) Run(ticker <-chan (time.Time), timeout int, ts_comple
 
 				// Record the time for this client to complete survey in ms
 				latency = float64(time.Now().UnixNano()-tsn) / 1000000
-				self.agg.Value(ts, "stagger.survey_latency_ex", latency)
-
-				latency = float64(time.Now().UnixNano()-ts*1000000000) / 1000000
 				self.agg.Value(ts, "stagger.survey_latency", latency)
 
 				if outstanding_stats[ts] == 0 {
