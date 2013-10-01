@@ -8,6 +8,7 @@ import (
 	_ "net/http/pprof"
 	"os"
 	"os/signal"
+	"syscall"
 	"time"
 )
 
@@ -86,7 +87,7 @@ func main() {
 
 	// Handle termination
 	c := make(chan os.Signal, 1)
-	signal.Notify(c, os.Interrupt)
+	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 	<-c
 	on_shutdown <- true
 	// TODO: Otherwise on_shutdown doesn't happen - why?
