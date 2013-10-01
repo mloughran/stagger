@@ -98,15 +98,14 @@ func (c *Conn) Run() {
 		case parts := <-recvMessage:
 			s := string(parts[0])
 
-			// Non-prefixed ping & ping are deprecated. TODO: remove
-			if s == "ping" || s == "pair:ping" {
+			if s == "pair:ping" {
 				debug.Print("[pair] Received ping, sending pong")
 				c.Send("pair:pong", []byte(""))
-			} else if s == "pong" || s == "pair:pong" {
+			} else if s == "pair:pong" {
 				debug.Print("[pair] Received pong")
 				// Do nothing
 			} else if s == "pair:shutdown" {
-				debug.Print("[pair] Received shutdown")
+				info.Print("[pair] Remote peer sent shutdown message")
 				return
 			} else {
 				if len(parts) != 2 {
