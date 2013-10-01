@@ -81,26 +81,34 @@ func (c *Conn) Run() {
 		c.OnClose <- true
 	}()
 
+	// send method for use by this goroutine
+	send := func(method string, params []byte) (err error) {
+		// Note: I considered using the cleaner pair.SendMessage but
+		// unfortunately that doesn't currently support arbitrary flags
+		// Using DONTWAIT to avoid Send blocking when HWM is reached
+		if _, err = pair.Send(method, zmq.DONTWAIT|zmq.SNDMORE); err != nil {
+			return
+		}
+		if _, err = pair.SendBytes(params, zmq.DONTWAIT); err != nil {
+			return
+		}
+		return
+	}
+
 	for {
 		select {
 		case msg := <-c.sendMessage:
-			// Note: I considered using the cleaner pair.SendMessage but
-			// unfortunately that doesn't currently support arbitrary flags
-			// Using DONTWAIT to avoid Send blocking when HWM is reached
-			if _, err := pair.Send(msg.Method, zmq.DONTWAIT|zmq.SNDMORE); err != nil {
+			if err := send(msg.Method, msg.Params); err != nil {
 				info.Printf("[pair] Closing %v after err: %v", c.addr, err)
 				return
 			}
-			if _, err := pair.SendBytes(msg.Params, zmq.DONTWAIT); err != nil {
-				info.Printf("[pair] Closing %v after err: %v", c.addr, err)
-				return
-			}
+
 		case parts := <-recvMessage:
 			s := string(parts[0])
 
 			if s == "pair:ping" {
 				debug.Print("[pair] Received ping, sending pong")
-				c.Send("pair:pong", []byte(""))
+				send("pair:pong", []byte(""))
 			} else if s == "pair:pong" {
 				debug.Print("[pair] Received pong")
 				// Do nothing
