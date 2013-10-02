@@ -19,7 +19,7 @@ type zmqMessage struct {
 
 // NewConn creates a Connection. You must select on OnMethod and OnClose
 func NewConn() *Conn {
-	return &Conn{make(chan zmqMessage), make(chan bool), make(chan zmqMessage), "", false}
+	return &Conn{make(chan zmqMessage, 1), make(chan bool, 1), make(chan zmqMessage), "", false}
 }
 
 // ShouldConnect notifies the Connection that it should Connect when Run called

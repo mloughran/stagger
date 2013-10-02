@@ -36,7 +36,7 @@ func (self *Server) Run() {
 	clients := make(map[int]Pairable)
 
 	// Clients send a message on this channel when they go away
-	clientDidClose := make(chan int)
+	clientDidClose := make(chan int, 1)
 
 	for {
 		select {

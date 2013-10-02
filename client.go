@@ -54,7 +54,7 @@ func (c *Client) RequestStats(ts int64) {
 	c.Send("report_all", map[string]interface{}{"Timestamp": ts})
 }
 
-func (c *Client) Run(send_gone chan<- (int)) {
+func (c *Client) Run(clientDidClose chan<- int) {
 	handleStats := func(data []byte) (ts int64, err error) {
 		var stats Stats
 		if err = unmarshal(data, &stats); err == nil {
@@ -93,7 +93,7 @@ func (c *Client) Run(send_gone chan<- (int)) {
 				info.Printf("Received unknown command %v", m.Method)
 			}
 		case <-c.pc.OnClose:
-			send_gone <- c.Id()
+			clientDidClose <- c.Id()
 			return
 		}
 	}
