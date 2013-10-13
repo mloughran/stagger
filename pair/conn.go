@@ -19,7 +19,7 @@ type zmqMessage struct {
 
 // NewConn creates a Connection. You must select on OnMethod and OnClose
 func NewConn() *Conn {
-	return &Conn{make(chan zmqMessage, 1), make(chan bool, 1), make(chan zmqMessage), "", false}
+	return &Conn{make(chan zmqMessage), make(chan bool), make(chan zmqMessage, 1), "", false}
 }
 
 // ShouldConnect notifies the Connection that it should Connect when Run called
@@ -34,7 +34,7 @@ func (c *Conn) Send(method string, params []byte) {
 }
 
 func (c *Conn) Run() {
-	recvMessage := make(chan ([][]byte))
+	recvMessage := make(chan ([][]byte), 1)
 	shouldClose := false
 
 	pair, _ := zmq.NewSocket(zmq.PAIR)
