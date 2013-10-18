@@ -3,6 +3,7 @@ package main
 import (
 	"./pair"
 	"flag"
+	"fmt"
 	"log"
 	"net/http"
 	_ "net/http/pprof"
@@ -28,6 +29,8 @@ func (d debugger) Print(args ...interface{}) {
 const debug debugger = false
 const info debugger = true
 
+var build string
+
 func main() {
 	hostname, _ := os.Hostname()
 	var source = flag.String("source", hostname, "source (for reporting)")
@@ -38,7 +41,17 @@ func main() {
 	var librato_email = flag.String("librato_email", "", "librato email")
 	var librato_token = flag.String("librato_token", "", "librato token")
 	var http_addr = flag.String("http", "", "HTTP debugging address (e.g. ':8080')")
+	var showBuild = flag.Bool("build", false, "Print build information")
 	flag.Parse()
+
+	if *showBuild {
+		if len(build) > 0 {
+			fmt.Println(build)
+		} else {
+			fmt.Println("Build with `go build -ldflags \"-X main.build <info-string>\"` to include build information in binary")
+		}
+		os.Exit(0)
+	}
 
 	ts_complete := make(chan int64)
 	ts_new := make(chan int64)
