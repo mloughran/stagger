@@ -3,24 +3,31 @@
 package main
 
 import (
+	"./httpclient"
 	"bytes"
 	"encoding/json"
 	"io/ioutil"
 	"net/http"
+	"time"
 )
 
 type Librato struct {
-	source   string
-	email    string
-	token    string
-	on_stats chan *TimestampedStats
+	source     string
+	email      string
+	token      string
+	on_stats   chan *TimestampedStats
+	httpclient *http.Client
 }
 
 func NewLibrato(source, email, token string) *Librato {
-	// Using a buffered channel to isolate slowness posting to librato
-	librato_chan := make(chan *TimestampedStats, 100)
-
-	return &Librato{source, email, token, librato_chan}
+	return &Librato{
+		source: source,
+		email:  email,
+		token:  token,
+		// Handle slow posts by combination of buffering channel & timing out
+		on_stats:   make(chan *TimestampedStats, 100),
+		httpclient: httpclient.NewTimeoutClient(2 * time.Second),
+	}
 }
 
 func (l *Librato) Run() {
@@ -85,16 +92,14 @@ func (l *Librato) post(stats *TimestampedStats) {
 	req.Header.Add("Content-Type", "application/json")
 	req.SetBasicAuth(l.email, l.token)
 
-	debug.Print("[librato] POSTING")
-
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := l.httpclient.Do(req)
 	if err != nil {
-		debug.Printf("[librato] HTTP error: %v", err)
+		info.Printf("[librato] HTTP error: %v", err)
 		return
 	}
 
 	if resp.StatusCode != 200 {
-		info.Printf("[librato] Invalid status: %v", resp.StatusCode)
+		info.Printf("[librato] Invalid response: %v", resp.StatusCode)
 		body, _ := ioutil.ReadAll(resp.Body)
 		info.Printf("[librato] HTTP body: %v", string(body))
 		return
@@ -102,6 +107,4 @@ func (l *Librato) post(stats *TimestampedStats) {
 
 	// Close the body as requested by the docs
 	resp.Body.Close()
-
-	debug.Print("[librato] DONE")
 }
