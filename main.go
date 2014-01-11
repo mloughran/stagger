@@ -1,9 +1,9 @@
 package main
 
 import (
-	"./pair"
 	"flag"
 	"fmt"
+	"github.com/pusher/stagger/pair"
 	"log"
 	"net/http"
 	_ "net/http/pprof"
