@@ -5,6 +5,9 @@ export GOPATH=$(PWD)
 
 default: stagger
 
+test:
+	go test
+
 # Builds the stagger binary
 stagger: $(SRCDIR) **/*.go
 	go fmt
@@ -17,3 +20,4 @@ $(SRCDIR):
 	go get $(REPO)
 	ln -fs ../stagger bin/stagger
 
+.PHONY: default test
