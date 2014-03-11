@@ -3,9 +3,9 @@
 package main
 
 import (
-	"./httpclient"
 	"bytes"
 	"encoding/json"
+	"github.com/pusher/stagger/httpclient"
 	"io/ioutil"
 	"net/http"
 	"time"
@@ -48,16 +48,16 @@ func (l *Librato) Send(stats *TimestampedStats) {
 }
 
 func (l *Librato) post(stats *TimestampedStats) {
-	gagues := make([]map[string]interface{}, 0)
+	gauges := make([]map[string]interface{}, 0)
 	for key, value := range stats.Counters {
-		gagues = append(gagues, map[string]interface{}{
+		gauges = append(gauges, map[string]interface{}{
 			"name":  key,
 			"value": value,
 		})
 	}
 
 	for key, value := range stats.Dists {
-		gagues = append(gagues, map[string]interface{}{
+		gauges = append(gauges, map[string]interface{}{
 			"name":        key,
 			"count":       value.N,
 			"sum":         value.Sum_x,
@@ -70,7 +70,7 @@ func (l *Librato) post(stats *TimestampedStats) {
 	data := map[string]interface{}{
 		"source":       l.source,
 		"measure_time": stats.Timestamp,
-		"gauges":       gagues,
+		"gauges":       gauges,
 	}
 
 	json_data, err := json.Marshal(data)
