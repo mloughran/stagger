@@ -50,7 +50,7 @@ func (s *Websocketsender) Send(stats *TimestampedStats) {
 	      ws.SetWriteDeadline(time.Now().Add(300*time.Millisecond))
 	      err := websocket.Message.Send(ws, b)
 	      if err != nil {
-			log.Println("Cannot deliver connection checker msg")
+			log.Println("Web socket: Cannot deliver msg")
 			cond.Signal()
 	      }
 	 }
