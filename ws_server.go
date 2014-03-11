@@ -18,19 +18,19 @@ type Websocketsender struct {
 }
 
 func NewWebsocketsender() *Websocketsender {
-        return &Websocketsender{connections: make(map[*websocket.Conn]*sync.Cond)}
+	return &Websocketsender{connections: make(map[*websocket.Conn]*sync.Cond)}
 }
 
 func (s *Websocketsender) GetWebsocketSenderHandler() (websocket.Handler){
     var handlerf func(ws *websocket.Conn);
     handlerf = func(ws *websocket.Conn) {
        defer func() {
-           log.Println("Ws connection closing")
-           ws.Close()
-           s.mutex.Lock()
-           delete(s.connections,ws)
-           s.mutex.Unlock()
-           log.Println("Total connections", len(s.connections))
+	   log.Println("Ws connection closing")
+	   ws.Close()
+	   s.mutex.Lock()
+	   delete(s.connections,ws)
+	   s.mutex.Unlock()
+	   log.Println("Total connections", len(s.connections))
        }()
        locker := &sync.Mutex{}
        locker.Lock()
@@ -46,13 +46,13 @@ func (s *Websocketsender) GetWebsocketSenderHandler() (websocket.Handler){
 
 func (s *Websocketsender) Send(stats *TimestampedStats) {
      for ws,cond := range s.connections {
-         if b, err := json.Marshal(stats); err == nil {
-              ws.SetWriteDeadline(time.Now().Add(300*time.Millisecond))
-              err := websocket.Message.Send(ws, b)
-              if err != nil {
-                        log.Println("Cannot deliver connection checker msg")
-                        cond.Signal()
-              }
-         }
+	 if b, err := json.Marshal(stats); err == nil {
+	      ws.SetWriteDeadline(time.Now().Add(300*time.Millisecond))
+	      err := websocket.Message.Send(ws, b)
+	      if err != nil {
+			log.Println("Cannot deliver connection checker msg")
+			cond.Signal()
+	      }
+	 }
      }
 }
