@@ -40,7 +40,8 @@ func main() {
 	var log_output = flag.Bool("log_output", true, "log aggregated data")
 	var librato_email = flag.String("librato_email", "", "librato email")
 	var librato_token = flag.String("librato_token", "", "librato token")
-	var http_addr = flag.String("http", "", "HTTP debugging address (e.g. ':8080')")
+        var http_addr = flag.String("http", "", "HTTP debugging address (e.g. ':8080')")
+        var ws_addr = flag.String("ws", "", "WS stream address (e.g. ':8090')")
 	var showBuild = flag.Bool("build", false, "Print build information")
 	flag.Parse()
 
@@ -90,6 +91,18 @@ func main() {
 			info.Printf("[main] HTTP debug server running on %v", *http_addr)
 			log.Println(http.ListenAndServe(*http_addr, nil))
 		}()
+	}
+
+        if *ws_addr != "" {
+		websocketsender := NewWebsocketsender()
+		output.Add(websocketsender)
+
+                go func() {
+                        http.Handle("/",websocketsender.GetWebsocketSenderHandler())
+			info.Printf("[main] WS stream server running on %v", *ws_addr)
+			log.Println(http.ListenAndServe(*ws_addr, nil))
+		}()
+
 	}
 
 	go output.Run(aggregator.output)
