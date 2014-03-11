@@ -5,6 +5,7 @@ cd stagger
 export GOROOT=$HOME/go
 export PATH=$PATH:$GOROOT/bin
 export GOPATH=$PWD
+export GOBIN=$PWD
 brew install zeromq
 go build
 ````
