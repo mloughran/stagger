@@ -1,0 +1,45 @@
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
+<head>
+   <style>
+      p {font-size:200%;}
+    </style>
+    <script type="text/javascript" src="jquery.js"></script>
+    <script type="text/javascript" src="jquery.sparkline.js"></script>
+    <script type="text/javascript" src="jquery.appear.js"></script>
+    <script type="text/javascript" src="reconnecting-websocket.js"></script>
+    <script type="text/javascript">
+    var stored_data = {};
+    $(function() {
+       var ws = new ReconnectingWebSocket('ws://@@@@/ws.json');
+       ws.onmessage = function(evt) {
+         data = JSON.parse(evt.data);
+         if(document.getElementById("set").childNodes.length>1)
+         { $('#waiting').remove() }
+         //console.log(data)
+         $.each(data["Dists"],function(k,v){
+             if(!stored_data.hasOwnProperty(k))
+             {
+               stored_data[k]=[];
+             }
+             stored_data[k].push(v.Sum_x/v.N)
+             if(stored_data[k].length > 60)
+             { stored_data[k].shift();}
+             name = k.replace(".", "_");
+             if(document.getElementById(name)){
+                $('#'+name).sparkline(stored_data[k], {type: 'line'})
+             }else{
+                if(stored_data[k].length > 1){
+                  $('#set').append($("<div>"+k+":<span id='"+name+"'>"+k+"</span></div>"));
+                  $('#'+name).sparkline(stored_data[k], {type: 'line'})
+                }
+             }});
+         };
+    });
+    </script>
+</head>
+<body>
+<p id="set">
+<h4 id="waiting">Waiting for data</h4>
+</p>
+</body>
+</html>
