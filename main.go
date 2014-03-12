@@ -9,7 +9,9 @@ import (
 	_ "net/http/pprof"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
+	"time"
 )
 
 type debugger bool
@@ -41,7 +43,11 @@ func main() {
 	var librato_email = flag.String("librato_email", "", "librato email")
 	var librato_token = flag.String("librato_token", "", "librato token")
 	var http_addr = flag.String("http", "", "HTTP debugging address (e.g. ':8080')")
-	var ws_addr = flag.String("ws", "", "WS stream address (e.g. ':8090')")
+	http_features_string := flag.String("features", "ws-json,http-json", "HTTP features (ws-json,http-json)")
+	http_features := make(map[string]bool)
+	for _, s := range strings.Split(*http_features_string, ",") {
+		http_features[s] = true
+	}
 	var showBuild = flag.Bool("build", false, "Print build information")
 	flag.Parse()
 
@@ -82,27 +88,26 @@ func main() {
 	}
 
 	if *http_addr != "" {
-		snapshot := NewSnapshot()
-		output.Add(snapshot)
-
+		if _, ok := http_features["http-json"]; ok {
+			log.Println("Http json enabled at http://" + *http_addr + "/snapshot.json")
+			snapshot := NewSnapshot()
+			output.Add(snapshot)
+			go func() {
+				http.Handle("/snapshot.json", snapshot)
+			}()
+		}
+		if _, ok := http_features["ws-json"]; ok {
+			log.Println("Websocket json enabled at ws://" + *http_addr + "/ws.json")
+			websocketsender := NewWebsocketsender()
+			output.Add(websocketsender)
+			go func() {
+				http.Handle("/ws.json", websocketsender.GetWebsocketSenderHandler())
+			}()
+		}
 		go func() {
-			http.Handle("/snapshot.json", snapshot)
-
 			info.Printf("[main] HTTP debug server running on %v", *http_addr)
 			log.Println(http.ListenAndServe(*http_addr, nil))
 		}()
-	}
-
-	if *ws_addr != "" {
-		websocketsender := NewWebsocketsender()
-		output.Add(websocketsender)
-
-		go func() {
-			http.Handle("/",websocketsender.GetWebsocketSenderHandler())
-			info.Printf("[main] WS stream server running on %v", *ws_addr)
-			log.Println(http.ListenAndServe(*ws_addr, nil))
-		}()
-
 	}
 
 	go output.Run(aggregator.output)
