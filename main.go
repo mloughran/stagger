@@ -2,6 +2,7 @@ package main
 
 import (
 	"./pair"
+	"bytes"
 	"flag"
 	"fmt"
 	"log"
@@ -110,16 +111,17 @@ func main() {
 
 			for _, n := range js_data {
 				js, _ := Asset("sparkline" + n)
-				jss := string(js)
 				http.HandleFunc(n,
 					func(w http.ResponseWriter, req *http.Request) {
-						http.ServeContent(w, req, n, time.Time{}, strings.NewReader(jss))
+						w.Header().Set("Content-Type", "application/javascript")
+						http.ServeContent(w, req, n, time.Time{}, bytes.NewReader(js))
 					})
 			}
 			hb, _ := Asset("sparkline/spark.html")
 			html := strings.Replace(string(hb), "@@@@", *http_addr, -1)
-			http.HandleFunc("/spark.html",
+			http.HandleFunc("/spark",
 				func(w http.ResponseWriter, req *http.Request) {
+					w.Header().Set("Content-Type", "text/html")
 					http.ServeContent(w, req, "spark.html", time.Time{}, strings.NewReader(html))
 				})
 		}
