@@ -2,6 +2,7 @@ package main
 
 import (
 	"./pair"
+	"bytes"
 	"flag"
 	"fmt"
 	"log"
@@ -11,6 +12,7 @@ import (
 	"os/signal"
 	"strings"
 	"syscall"
+	"time"
 )
 
 type debugger bool
@@ -42,7 +44,7 @@ func main() {
 	var librato_email = flag.String("librato_email", "", "librato email")
 	var librato_token = flag.String("librato_token", "", "librato token")
 	var http_addr = flag.String("http", "", "HTTP debugging address (e.g. ':8080')")
-	http_features_string := flag.String("features", "ws-json,http-json", "HTTP features (ws-json,http-json)")
+	http_features_string := flag.String("features", "ws-json,http-json,sparkline", "HTTP features (ws-json,http-json,sparkline)")
 	http_features := make(map[string]bool)
 	for _, s := range strings.Split(*http_features_string, ",") {
 		http_features[s] = true
@@ -102,6 +104,26 @@ func main() {
 			go func() {
 				http.Handle("/ws.json", websocketsender.GetWebsocketSenderHandler())
 			}()
+		}
+		if _, ok := http_features["sparkline"]; ok {
+			log.Println("Sparkline enabled at http://" + *http_addr + "/spark.html")
+			js_data := []string{"/jquery.js", "/jquery.sparkline.js", "/jquery.appear.js", "/reconnecting-websocket.js"}
+
+			for _, n := range js_data {
+				js, _ := Asset("sparkline" + n)
+				http.HandleFunc(n,
+					func(w http.ResponseWriter, req *http.Request) {
+						w.Header().Set("Content-Type", "application/javascript")
+						http.ServeContent(w, req, n, time.Time{}, bytes.NewReader(js))
+					})
+			}
+			hb, _ := Asset("sparkline/spark.html")
+			html := strings.Replace(string(hb), "@@@@", *http_addr, -1)
+			http.HandleFunc("/spark",
+				func(w http.ResponseWriter, req *http.Request) {
+					w.Header().Set("Content-Type", "text/html")
+					http.ServeContent(w, req, "spark.html", time.Time{}, strings.NewReader(html))
+				})
 		}
 		go func() {
 			info.Printf("[main] HTTP debug server running on %v", *http_addr)
