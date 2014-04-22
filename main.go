@@ -3,8 +3,12 @@ package main
 import (
 	"./pair"
 	"bytes"
+	"crypto/tls"
+	"crypto/x509"
+	"encoding/pem"
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
 	_ "net/http/pprof"
@@ -13,6 +17,7 @@ import (
 	"strings"
 	"syscall"
 	"time"
+	//        "net"
 )
 
 type debugger bool
@@ -43,15 +48,22 @@ func main() {
 	var log_output = flag.Bool("log_output", true, "log aggregated data")
 	var librato_email = flag.String("librato_email", "", "librato email")
 	var librato_token = flag.String("librato_token", "", "librato token")
-	var http_addr = flag.String("http", "", "HTTP debugging address (e.g. ':8080')")
+	http_addr := flag.String("http", "127.0.0.1:8990", "HTTP debugging address (e.g. ':8990')")
+	https_addr := flag.String("https", "0.0.0.0:8443", "HTTPS address (e.g. ':8443')")
 	http_features_string := flag.String("features", "ws-json,http-json,sparkline", "HTTP features (ws-json,http-json,sparkline)")
+	ssl_crt := flag.String("crt", "", "SSL Certificate")
+	ssl_key := flag.String("key", "", "SSL Key")
+	ssl_ca := flag.String("ca", "", "Client certificate CA (If left unspecified, client certificates are not used)")
+	var showBuild = flag.Bool("build", false, "Print build information")
+	flag.Parse()
 	http_features := make(map[string]bool)
 	for _, s := range strings.Split(*http_features_string, ",") {
 		http_features[s] = true
 	}
-	var showBuild = flag.Bool("build", false, "Print build information")
-	flag.Parse()
-
+	if *ssl_crt == "" || *ssl_key == "" {
+		*https_addr = ""
+		info.Printf("[main] Either SSL crt (%v) and key (%v) left unspecified, disabling https interface", *ssl_crt, *ssl_key)
+	}
 	if *showBuild {
 		if len(build) > 0 {
 			fmt.Println(build)
@@ -87,10 +99,9 @@ func main() {
 		stdout := NewStdOut()
 		output.Add(stdout)
 	}
-
-	if *http_addr != "" {
+	if *http_addr != "" || *https_addr != "" {
 		if _, ok := http_features["http-json"]; ok {
-			log.Println("Http json enabled at http://" + *http_addr + "/snapshot.json")
+			log.Println("[main] Http json enabled at http://" + *http_addr + "/snapshot.json")
 			snapshot := NewSnapshot()
 			output.Add(snapshot)
 			go func() {
@@ -98,7 +109,7 @@ func main() {
 			}()
 		}
 		if _, ok := http_features["ws-json"]; ok {
-			log.Println("Websocket json enabled at ws://" + *http_addr + "/ws.json")
+			log.Println("[main] Websocket json enabled at ws://" + *http_addr + "/ws.json")
 			websocketsender := NewWebsocketsender()
 			output.Add(websocketsender)
 			go func() {
@@ -106,7 +117,7 @@ func main() {
 			}()
 		}
 		if _, ok := http_features["sparkline"]; ok {
-			log.Println("Sparkline enabled at http://" + *http_addr + "/spark.html")
+			log.Println("[main] Sparkline enabled at http://" + *http_addr + "/spark.html")
 			js_data := []string{"/jquery.js", "/jquery.sparkline.js", "/jquery.appear.js", "/reconnecting-websocket.js"}
 
 			for _, n := range js_data {
@@ -118,17 +129,64 @@ func main() {
 					})
 			}
 			hb, _ := Asset("sparkline/spark.html")
-			html := strings.Replace(string(hb), "@@@@", *http_addr, -1)
 			http.HandleFunc("/spark",
 				func(w http.ResponseWriter, req *http.Request) {
 					w.Header().Set("Content-Type", "text/html")
-					http.ServeContent(w, req, "spark.html", time.Time{}, strings.NewReader(html))
+					http.ServeContent(w, req, "spark", time.Time{}, bytes.NewReader(hb))
 				})
 		}
-		go func() {
-			info.Printf("[main] HTTP debug server running on %v", *http_addr)
-			log.Println(http.ListenAndServe(*http_addr, nil))
-		}()
+		if *http_addr != "" {
+			go func() {
+				info.Printf("[main] HTTP server running on %v", *http_addr)
+				log.Println(http.ListenAndServe(*http_addr, nil))
+			}()
+		}
+		if *https_addr != "" {
+			cert, err := tls.LoadX509KeyPair(*ssl_crt, *ssl_key)
+			if err != nil {
+				log.Fatalf("[main] loading key/crt pair: %s", err)
+			}
+			cp := x509.NewCertPool()
+			var request_cert tls.ClientAuthType
+			if *ssl_ca != "" {
+				ca_data, err := ioutil.ReadFile(*ssl_ca)
+				if err != nil {
+					log.Fatalf("[main] loading ca: %s", err)
+				}
+				ca_decoded, _ := pem.Decode(ca_data)
+				x509cert, err := x509.ParseCertificate(ca_decoded.Bytes)
+				if err != nil {
+					log.Fatalf("[main] ca not x509?, %s", err)
+				}
+				cp.AddCert(x509cert)
+				request_cert = tls.RequireAndVerifyClientCert
+			} else {
+				request_cert = tls.NoClientCert
+				log.Println("[main] WARNING: No client certificate specified, disabling authentication")
+			}
+			config := tls.Config{
+				Certificates:       []tls.Certificate{cert},
+				ClientAuth:         request_cert,
+				RootCAs:            cp,
+				ClientCAs:          cp,
+				InsecureSkipVerify: true, //Don't check hostname of client certificate
+				NextProtos:         []string{"http/1.1"},
+				CipherSuites: []uint16{ // Work around chrome ssl certificate issue
+					tls.TLS_RSA_WITH_RC4_128_SHA,
+					tls.TLS_RSA_WITH_3DES_EDE_CBC_SHA,
+					tls.TLS_RSA_WITH_AES_128_CBC_SHA,
+					tls.TLS_RSA_WITH_AES_256_CBC_SHA,
+				},
+			}
+			srv := http.Server{
+				Addr:      *https_addr,
+				TLSConfig: &config,
+			}
+			go func() {
+				info.Printf("[main] HTTPS server running on %v", *https_addr)
+				log.Println(srv.ListenAndServeTLS(*ssl_crt, *ssl_key))
+			}()
+		}
 	}
 
 	go output.Run(aggregator.output)
