@@ -20,7 +20,7 @@
        var ws = new ReconnectingWebSocket(host);
        ws.onmessage = function(evt) {
          data = JSON.parse(evt.data);
-         if(document.getElementById("set").childNodes.length>1)
+         if(document.getElementById("set").childNodes.length>0)
          { $('#waiting').remove() }
          //console.log(data)
          $.each(data["Dists"],function(k,v){
