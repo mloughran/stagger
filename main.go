@@ -56,7 +56,7 @@ func main() {
 	ssl_ca := flag.String("ca", "", "Client certificate CA (If left unspecified, client certificates are not used)")
 	var showBuild = flag.Bool("build", false, "Print build information")
 	flag.Parse()
-        http_features := make(map[string]bool)
+	http_features := make(map[string]bool)
 	for _, s := range strings.Split(*http_features_string, ",") {
 		http_features[s] = true
 	}
@@ -148,22 +148,29 @@ func main() {
 					log.Fatalf("[main] loading key/crt pair: %s", err)
 				}
 				cp := x509.NewCertPool()
-				ca_data, err := ioutil.ReadFile(*ssl_ca)
-				if err != nil {
-					log.Fatalf("[main] loading ca: %s", err)
+				var request_cert tls.ClientAuthType
+				if *ssl_ca != "" {
+					ca_data, err := ioutil.ReadFile(*ssl_ca)
+					if err != nil {
+						log.Fatalf("[main] loading ca: %s", err)
+					}
+					ca_decoded, _ := pem.Decode(ca_data)
+					x509cert, err := x509.ParseCertificate(ca_decoded.Bytes)
+					if err != nil {
+						log.Fatalf("[main] ca not x509?, %s", err)
+					}
+					cp.AddCert(x509cert)
+					request_cert = tls.RequireAndVerifyClientCert
+				} else {
+					request_cert = tls.NoClientCert
+					log.Println("[main] WARNING: No client certificate specified, disabling authentication")
 				}
-				ca_decoded, _ := pem.Decode(ca_data)
-				x509cert, err := x509.ParseCertificate(ca_decoded.Bytes)
-				if err != nil {
-					log.Fatalf("[main] ca not x509?, %s", err)
-				}
-				cp.AddCert(x509cert)
 				config := tls.Config{
 					Certificates:       []tls.Certificate{cert},
-					ClientAuth:         tls.RequireAndVerifyClientCert,
+					ClientAuth:         request_cert,
 					RootCAs:            cp,
 					ClientCAs:          cp,
-					InsecureSkipVerify: true,
+					InsecureSkipVerify: true, //Don't check hostname of client certificate
 					NextProtos:         []string{"http/1.1"},
 					CipherSuites: []uint16{ // Work around chrome ssl certificate issue
 						tls.TLS_RSA_WITH_RC4_128_SHA,
