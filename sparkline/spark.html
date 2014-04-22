@@ -10,7 +10,14 @@
     <script type="text/javascript">
     var stored_data = {};
     $(function() {
-       var ws = new ReconnectingWebSocket('ws://@@@@/ws.json');
+       if (document.location.protocol === 'https:') {
+         var host = 'wss://'+document.location.host+'/ws.json'
+       } else
+       {
+         var host = 'ws://'+document.location.host+'/ws.json'
+       }
+       console.log("Sparkline attempting to connect to",host)
+       var ws = new ReconnectingWebSocket(host);
        ws.onmessage = function(evt) {
          data = JSON.parse(evt.data);
          if(document.getElementById("set").childNodes.length>1)
