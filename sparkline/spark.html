@@ -2,6 +2,9 @@
 <head>
    <style>
       p {font-size:200%;}
+      .canvas { z-order: 1; opacity: 0.8; }
+      .data-overlay { position: relative; width:0; height: 0;}
+      .data-overlay-inner { position: absolute; left: 10px; z-order: -1;}
     </style>
     <script type="text/javascript" src="jquery.js"></script>
     <script type="text/javascript" src="jquery.sparkline.js"></script>
@@ -32,13 +35,11 @@
              if(stored_data[k].length > 60)
              { stored_data[k].shift();}
              name = k.replace(".", "_");
-             if(document.getElementById(name)){
+             if(document.getElementById(name) && stored_data[k].length > 1){
                 $('#'+name).sparkline(stored_data[k], {type: 'line'})
+                $('#data-overlay-'+name).text(stored_data[k].slice(-1)[0].toFixed(3))
              }else{
-                if(stored_data[k].length > 1){
-                  $('#set').append($("<div>"+k+":<span id='"+name+"'>"+k+"</span></div>"));
-                  $('#'+name).sparkline(stored_data[k], {type: 'line'})
-                }
+                $('#set').append($("<div>"+k+":<span class='data-overlay'><span class='data-overlay-inner' id='data-overlay-"+name+"'>"+stored_data[k].slice(-1)[0].toFixed(3)+"</span></span><span class='canvas' id='"+name+"'></span></div>"));
              }});
          };
     });
