@@ -25,13 +25,17 @@
          data = JSON.parse(evt.data);
          if(document.getElementById("set").childNodes.length>0)
          { $('#waiting').remove() }
-         //console.log(data)
+         $.extend(data["Dists"],data["Counters"])
          $.each(data["Dists"],function(k,v){
              if(!stored_data.hasOwnProperty(k))
              {
                stored_data[k]=[];
              }
-             stored_data[k].push(v.Sum_x/v.N)
+             if((typeof v)==="number"){
+               stored_data[k].push(v)
+             } else {
+               stored_data[k].push(v.Sum_x/v.N)
+             }
              if(stored_data[k].length > 60)
              { stored_data[k].shift();}
              name = k.replace(".", "_");
