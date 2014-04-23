@@ -3,5 +3,10 @@
 require 'bundler/setup'
 require 'stagger'
 EM.run {
-  Stagger.default.register_value(:test){ Random.rand }
+  (1..20).each{|i|
+    Stagger.default.register_value("test.floo#{i}.nox".to_sym){
+      puts "fetching data for test.floo#{i}"
+      Random.rand
+    }
+  }
 }
