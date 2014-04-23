@@ -38,7 +38,7 @@
              }
              if(stored_data[k].length > 60)
              { stored_data[k].shift();}
-             name = k.replace(".", "_");
+             name = k.replace(/\./g, "_");
              if(document.getElementById(name) && stored_data[k].length > 1){
                 $('#'+name).sparkline(stored_data[k], {type: 'line'})
                 $('#data-overlay-'+name).text(stored_data[k].slice(-1)[0].toFixed(3))
