@@ -6,6 +6,10 @@
       .data-overlay-inner { position: absolute; left: 10px; z-order: -1;}
       table,th,td { border: none;}
       table {font-size:200%;}
+      .hidden { display: none; }
+      #clean-filter { font-size:200%; position: fixed; top: 0px; right: 0px; }
+      a.selected { background-color: lightgray;}
+      a { text-decoration: none; }
     </style>
     <script type="text/javascript" src="jquery.js"></script>
     <script type="text/javascript" src="jquery.sparkline.js"></script>
@@ -13,6 +17,22 @@
     <script type="text/javascript" src="reconnecting-websocket.js"></script>
     <script type="text/javascript">
     var stored_data = {};
+    function changeloc(oldloc,newloc){
+       if(newloc!=="")
+       { $("#clean-filter").removeClass("hidden") }
+       else
+       { $("#clean-filter").addClass("hidden") }
+       if(newloc==="")
+       {
+         $(".hidden").removeClass("hidden")
+         $(".filter-"+oldloc+" td a[href=#filter-"+oldloc+"]").removeClass("selected")
+       } else {
+         $("tr").addClass("hidden")
+         $(".filter-"+newloc).removeClass("hidden");
+         $(".filter-"+newloc+" td a[href=#filter-"+newloc+"]").addClass("selected")
+         $(".filter-"+oldloc+" td a[href=#filter-"+oldloc+"]").removeClass("selected")
+       }
+    }
     $(function() {
        if (document.location.protocol === 'https:') {
          var host = 'wss://'+document.location.host+'/ws.json'
@@ -22,6 +42,11 @@
        }
        console.log("Sparkline attempting to connect to",host)
        var ws = new ReconnectingWebSocket(host);
+       window.onhashchange = function(evt){
+         var newloc=evt.newURL.split("#")[1].replace("filter-","")
+         var oldloc=evt.oldURL.split("#")[1].replace("filter-","")
+         changeloc(oldloc,newloc)
+       }
        ws.onmessage = function(evt) {
          data = JSON.parse(evt.data);
          if(document.getElementById("set").childNodes.length>0)
@@ -39,12 +64,24 @@
              }
              if(stored_data[k].length > 60)
              { stored_data[k].shift();}
-             name = k.replace(/\./g, "_");
-             if(document.getElementById(name) && stored_data[k].length > 1){
-                $('#'+name).sparkline(stored_data[k], {type: 'line'})
+             var name = k.replace(/\./g, "_");
+             if(document.getElementById("spark-"+name) && stored_data[k].length > 1){
+                $('#spark-'+name).sparkline(stored_data[k], {type: 'line'})
                 $('#data-overlay-'+name).text(stored_data[k].slice(-1)[0].toFixed(3))
              }else{
-                $('#set').append($("<tr><td>"+k+"</td><td><span class='data-overlay'><span class='data-overlay-inner' id='data-overlay-"+name+"'>"+stored_data[k].slice(-1)[0].toFixed(3)+"</span></span><span class='canvas' id='"+name+"'></span></td></tr>"));
+                var click_filters = k.split(/\./)
+                var classes = click_filters.map(function(f){return "filter-"+f;}).join(" ")
+                if ( document.location.hash.match(/^filter-/) &&
+                     classes.indexOf(document.location.hash)==-1 )
+                { classes.push("hidden") }
+                var parts = click_filters.map(function(f){
+                  if(("#filter-"+f)===document.location.hash){
+                    return "<a class='selected' href='#filter-"+f+"'>"+f+"</a>"
+                  } else {
+                    return "<a href='#filter-"+f+"'>"+f+"</a>"
+                  }
+                }).join(".")
+                $('#set').append($("<tr class='"+classes+"'><td>"+parts+"</td><td><span class='data-overlay'><span class='data-overlay-inner' id='data-overlay-"+name+"'>"+stored_data[k].slice(-1)[0].toFixed(3)+"</span></span><a href='#graph-"+k+"'><span class='canvas' id='spark-"+name+"'></span></a></td></tr>"));
              }});
          };
     });
@@ -52,6 +89,7 @@
 </head>
 <body>
   <h4 id="waiting">Waiting for data</h4>
+  <a href="#" id="clean-filter">X</a>
   <table>
     <tbody id="set">
     </tbody>
