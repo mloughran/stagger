@@ -7,7 +7,7 @@
       table,th,td { border: none;}
       table {font-size:200%;}
       .hidden { display: none; }
-      #clean-filter { font-size:200%; position: fixed; top: 0px; right: 0px; }
+      .tools { font-size:200%; position: fixed; top: 0px; right: 0px; }
       a.selected { background-color: lightgray;}
       a { text-decoration: none; }
     </style>
@@ -19,9 +19,9 @@
     var stored_data = {};
     function changeloc(oldloc,newloc){
        if(newloc!=="")
-       { $("#clean-filter").removeClass("hidden") }
+       { $(".tools").removeClass("hidden") }
        else
-       { $("#clean-filter").addClass("hidden") }
+       { $(".tools").addClass("hidden") }
        if(newloc==="")
        {
          $(".hidden").removeClass("hidden")
@@ -104,7 +104,7 @@
 </head>
 <body>
   <h4 id="waiting">Waiting for data</h4>
-  <a href="#" id="clean-filter">X</a>
+  <span class="tools"><a id="collapse">C</a></span><a href="#">&#9003;</a></span>
   <table>
     <tbody id="set">
     </tbody>
