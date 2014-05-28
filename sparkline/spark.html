@@ -33,6 +33,20 @@
          $(".filter-"+oldloc+" td a[href=#filter-"+oldloc+"]").removeClass("selected")
        }
     }
+    function hash(url){
+      return (((new URL(url)).hash)+"").replace("#","")
+    }
+    function types(url){
+      return hash(url).split(" ").reduce(
+        function(o,n){
+          key = n.split("-")[0]
+          if (o[key] === undefined)
+             { o[key]=[]; }
+          o[key].push(n.replace(/^\w+-/,""));
+          return o;
+        }, new Object()
+      );
+    }
     $(function() {
        if (document.location.protocol === 'https:') {
          var host = 'wss://'+document.location.host+'/ws.json'
