@@ -57,8 +57,9 @@
        console.log("Sparkline attempting to connect to",host)
        var ws = new ReconnectingWebSocket(host);
        window.onhashchange = function(evt){
-         var newloc=evt.newURL.split("#")[1].replace("filter-","")
-         var oldloc=evt.oldURL.split("#")[1].replace("filter-","")
+         console.log(types(evt.newURL));
+         var newloc = hash(evt.newURL).replace("filter-","")
+         var oldloc = hash(evt.oldURL).replace("filter-","")
          changeloc(oldloc,newloc)
        }
        ws.onmessage = function(evt) {
