@@ -134,6 +134,15 @@ func main() {
 					w.Header().Set("Content-Type", "text/html")
 					http.ServeContent(w, req, "spark", time.Time{}, bytes.NewReader(hb))
 				})
+			http.HandleFunc("/",
+				func(w http.ResponseWriter, req *http.Request) {
+					if req.URL.Path != "/" {
+						http.NotFound(w, req)
+						return
+					}
+					http.Redirect(w, req, "/spark", http.StatusFound)
+				})
+
 		}
 		if *http_addr != "" {
 			go func() {
