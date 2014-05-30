@@ -8,8 +8,9 @@
       table {font-size:200%;}
       .hidden { display: none; }
       .tools { font-size:200%; position: fixed; top: 0px; right: 0px; }
+      .rm-filter {font-size:25%; position:relative; top: -2em;}
       a.selected { background-color: lightgray;}
-      a { text-decoration: none; }
+      a { text-decoration: none; cursor:pointer; color: darkblue;}
     </style>
     <script type="text/javascript" src="jquery.js"></script>
     <script type="text/javascript" src="jquery.sparkline.js"></script>
@@ -18,20 +19,49 @@
     <script type="text/javascript">
     var stored_data = {};
     function changeloc(oldloc,newloc){
-       if(newloc!=="")
-       { $(".tools").removeClass("hidden") }
-       else
-       { $(".tools").addClass("hidden") }
-       if(newloc==="")
+       oldfilterset = types(oldloc).filter || [];
+       newfilterset = types(newloc).filter || [];
+       console.log("moving from",oldfilterset,"to",newfilterset)
+       $(".rm-filter").addClass("hidden")
+       $("tr.hidden").removeClass("hidden")
+       $(".selected").removeClass("selected")
+       if(newfilterset.length==0)
        {
-         $(".hidden").removeClass("hidden")
-         $(".filter-"+oldloc+" td a[href=#filter-"+oldloc+"]").removeClass("selected")
+         console.log("No filters enabled")
        } else {
-         $("tr").addClass("hidden")
-         $(".filter-"+newloc).removeClass("hidden");
-         $(".filter-"+newloc+" td a[href=#filter-"+newloc+"]").addClass("selected")
-         $(".filter-"+oldloc+" td a[href=#filter-"+oldloc+"]").removeClass("selected")
+         newfilterclass = newfilterset.map(function(f){return "filter-"+f}).join(".")
+         newfilterset.forEach(function(f){
+            $("tr.filter-"+f+" td a.add-filter.filter-"+f).addClass("selected")
+            $("tr.filter-"+f+" td a.rm-filter.filter-"+f).removeClass("hidden")
+         })
+         $("tr."+newfilterclass).addClass("selected")
+         $("tr").not(".selected").addClass("hidden")
        }
+    }
+    function get_filter_name(target)
+    {
+       var filtername;
+       for (var i = 0; i < target.classList.length; i++) {
+           if((target.classList.item(i).lastIndexOf("filter-"),0) === 0)
+           {
+              filtername = target.classList.item(i)
+           }
+       }
+       return filtername;
+    }
+    function add_filter(event)
+    {
+       var filtername = get_filter_name(event.target)
+       var hash = window.location.hash.split(" ")
+       console.log("adding filter",filtername,"to",hash)
+       hash.push(filtername);
+       window.location.hash = hash.join(" ")
+    }
+    function remove_filter(event)
+    {
+       var filtername = get_filter_name(event.target)
+       console.log("removing filter",filtername)
+       window.location.hash=window.location.hash.replace(filtername,"")
     }
     function hash(url){
       return (((new URL(url)).hash)+"").replace("#","")
@@ -57,15 +87,13 @@
        console.log("Sparkline attempting to connect to",host)
        var ws = new ReconnectingWebSocket(host);
        window.onhashchange = function(evt){
-         console.log(types(evt.newURL));
-         var newloc = hash(evt.newURL).replace("filter-","")
-         var oldloc = hash(evt.oldURL).replace("filter-","")
-         changeloc(oldloc,newloc)
+         changeloc(evt.oldURL,evt.newURL)
        }
        ws.onmessage = function(evt) {
          data = JSON.parse(evt.data);
          if(document.getElementById("set").childNodes.length>0)
          { $('#waiting').remove() }
+         console.log(data);
          $.extend(data["Dists"],data["Counters"])
          $.each(data["Dists"],function(k,v){
              if(!stored_data.hasOwnProperty(k))
@@ -86,17 +114,10 @@
              }else{
                 var click_filters = k.split(/\./)
                 var classes = click_filters.map(function(f){return "filter-"+f;}).join(" ")
-                if ( document.location.hash.match(/^filter-/) &&
-                     classes.indexOf(document.location.hash)==-1 )
-                { classes.push("hidden") }
-                var parts = click_filters.map(function(f){
-                  if(("#filter-"+f)===document.location.hash){
-                    return "<a class='selected' href='#filter-"+f+"'>"+f+"</a>"
-                  } else {
-                    return "<a href='#filter-"+f+"'>"+f+"</a>"
-                  }
-                }).join(".")
-                $('#set').append($("<tr class='"+classes+"'><td>"+parts+"</td><td><span class='data-overlay'><span class='data-overlay-inner' id='data-overlay-"+name+"'>"+stored_data[k].slice(-1)[0].toFixed(3)+"</span></span><a href='#graph-"+k+"'><span class='canvas' id='spark-"+name+"'></span></a></td></tr>"));
+                var parts = click_filters.map(function(f){ return"<a onclick='add_filter(event)' class='add-filter filter-"+f+"'>"+f+"</a><a onclick='remove_filter(event)' class='rm-filter filter-"+f+"'>&#9003;</a>"}).join(".")
+                $('#set').append($("<tr id='tr-"+name+"' class='"+classes+"'><td>"+parts+"</td><td><span class='data-overlay'><span class='data-overlay-inner' id='data-overlay-"+name+"'>"+stored_data[k].slice(-1)[0].toFixed(3)+"</span></span><a href='#graph-"+k+"'><span class='canvas' id='spark-"+name+"'></span></a></td></tr>"));
+                console.log("updating locs")
+                console.log(changeloc(new URL(""),document.location));
              }});
          };
     });
@@ -104,7 +125,11 @@
 </head>
 <body>
   <h4 id="waiting">Waiting for data</h4>
-  <span class="tools"><a id="collapse">C</a></span><a href="#">&#9003;</a></span>
+  <span class="tools">
+    <a href="#" title="Clear filters">&#9003;</a>
+    <a href="#" title="Individual">&#10070;</a>
+    <a href="#" title="Collapse">&#9670;</a>
+  </span>
   <table>
     <tbody id="set">
     </tbody>
