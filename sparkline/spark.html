@@ -11,20 +11,37 @@
       .rm-filter {font-size:25%; position:relative; top: -2em;}
       a.selected { background-color: lightgray;}
       a { text-decoration: none; cursor:pointer; color: darkblue;}
+      input[type=checkbox] {width:1em; height:1em;}
     </style>
     <script type="text/javascript" src="jquery.js"></script>
     <script type="text/javascript" src="jquery.sparkline.js"></script>
     <script type="text/javascript" src="jquery.appear.js"></script>
     <script type="text/javascript" src="reconnecting-websocket.js"></script>
     <script type="text/javascript">
+    // add things to selected (+) after graph
+    // change time base
+    // fullscreen graph
+    // add data types
+    // add history
     var stored_data = {};
+    var stored_time = [];
+    var stored_rate = -1;
     function changeloc(oldloc,newloc){
-       oldfilterset = types(oldloc).filter || [];
-       newfilterset = types(newloc).filter || [];
-       console.log("moving from",oldfilterset,"to",newfilterset)
+       var oldtypes = types(oldloc);
+       var newtypes = types(newloc);
+       var oldfilterset = types(oldloc).filter || [];
+       var newfilterset = types(newloc).filter || [];
+       console.log("moving from filters",oldfilterset,"to",newfilterset)
        $(".rm-filter").addClass("hidden")
        $("tr.hidden").removeClass("hidden")
        $(".selected").removeClass("selected")
+       if(types(newloc).collapse) {
+         if(newfilterset.length > 0) {
+           $("span#fullscreen").removeClass("hidden")
+         } else { console.log("Collapsing everything makes no sense!") }
+       } else {
+         $("span#fullscreen").addClass("hidden")
+       }
        if(newfilterset.length==0)
        {
          console.log("No filters enabled")
@@ -49,19 +66,41 @@
        }
        return filtername;
     }
+    function add_hash_element(name)
+    {
+       var hash = window.location.hash.replace("#","").split(" ")
+       console.log("adding hash element",name,"to",hash)
+       if(hash.indexOf(name)===-1)
+         { hash.push(name);}
+       window.location.hash = hash.join(" ").replace(/^ /,"")
+    }
+    function remove_hash_element(name)
+    {
+       console.log("removing hash element",name)
+       window.location.hash=window.location.hash.replace(name,"").replace(/^# /,"")
+    }
     function add_filter(event)
     {
-       var filtername = get_filter_name(event.target)
-       var hash = window.location.hash.split(" ")
-       console.log("adding filter",filtername,"to",hash)
-       hash.push(filtername);
-       window.location.hash = hash.join(" ")
+       add_hash_element(get_filter_name(event.target));
     }
     function remove_filter(event)
     {
-       var filtername = get_filter_name(event.target)
-       console.log("removing filter",filtername)
-       window.location.hash=window.location.hash.replace(filtername,"")
+       remove_hash_element(get_filter_name(event.target));
+    }
+    function toggle_mark(event)
+    {
+       console.log(event.target);
+       if(event.target.checked){
+         add_hash_element("mark-"+event.target.name);
+       } else {
+         remove_hash_element("mark-"+event.target.name);
+       }
+       event.preventDefault();
+       event.stopPropagation();
+       return false;
+    }
+    function collapse(){
+       add_hash_element("collapse-rows")
     }
     function hash(url){
       return (((new URL(url)).hash)+"").replace("#","")
@@ -93,7 +132,12 @@
          data = JSON.parse(evt.data);
          if(document.getElementById("set").childNodes.length>0)
          { $('#waiting').remove() }
-         console.log(data);
+         stored_time.push(data["Timestamp"]);
+         if( stored_rate < 0 && stored_time.length > 1) {
+           stored_rate = stored_time[1] - stored_time[0];
+           console.log("Rate is",stored_rate,"seconds")
+         }
+         if(stored_time.length > 60) { stored_time.shift();}
          $.extend(data["Dists"],data["Counters"])
          $.each(data["Dists"],function(k,v){
              if(!stored_data.hasOwnProperty(k))
@@ -115,9 +159,10 @@
                 var click_filters = k.split(/\./)
                 var classes = click_filters.map(function(f){return "filter-"+f;}).join(" ")
                 var parts = click_filters.map(function(f){ return"<a onclick='add_filter(event)' class='add-filter filter-"+f+"'>"+f+"</a><a onclick='remove_filter(event)' class='rm-filter filter-"+f+"'>&#9003;</a>"}).join(".")
-                $('#set').append($("<tr id='tr-"+name+"' class='"+classes+"'><td>"+parts+"</td><td><span class='data-overlay'><span class='data-overlay-inner' id='data-overlay-"+name+"'>"+stored_data[k].slice(-1)[0].toFixed(3)+"</span></span><a href='#graph-"+k+"'><span class='canvas' id='spark-"+name+"'></span></a></td></tr>"));
+                var prelude = "<td><input type='checkbox' name='check-"+name+"' onclick='toggle_mark(event)'></td>"
+                $('#set').append($("<tr id='tr-"+name+"' class='"+classes+"'>"+prelude+"<td>"+parts+"</td><td><span class='data-overlay'><span class='data-overlay-inner' id='data-overlay-"+name+"'>"+stored_data[k].slice(-1)[0].toFixed(3)+"</span></span><a href='#graph-"+k+"'><span class='canvas' id='spark-"+name+"'></span></a></td></tr>"));
                 console.log("updating locs")
-                console.log(changeloc(new URL(""),document.location));
+                changeloc(new URL(""),document.location);
              }});
          };
     });
@@ -126,10 +171,11 @@
 <body>
   <h4 id="waiting">Waiting for data</h4>
   <span class="tools">
-    <a href="#" title="Clear filters">&#9003;</a>
-    <a href="#" title="Individual">&#10070;</a>
-    <a href="#" title="Collapse">&#9670;</a>
+    <a href="#" title="Clear">&#9003;</a>
+    <a onclick="split()" title="Show individually">&#10070;</a>
+    <a onclick="collapse()" title="Show collectively">&#9670;</a>
   </span>
+  <span class="hidden" id="fullscreen"></span>
   <table>
     <tbody id="set">
     </tbody>
