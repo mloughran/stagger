@@ -9,8 +9,8 @@
       .hidden { display: none; }
       .tools { font-size:200%; position: fixed; top: 0px; right: 0px; }
       .rm-filter {font-size:25%; position:relative; top: -2em;}
-      tr.marked { background-color: lightblue; }
-      a.selected { background-color: lightgray; }
+      tr.marked { background-color: lavender; }
+      a.selected { background-color: lightgrey; }
       a { text-decoration: none; cursor:pointer; color: darkblue;}
       input[type=checkbox] {width:1em; height:1em;}
     </style>
@@ -27,6 +27,7 @@
     var stored_data = {};
     var stored_time = [];
     var stored_rate = -1;
+    var stored_map  = {};
     function changeloc(oldloc,newloc){
        var oldtypes = types(oldloc);
        var newtypes = types(newloc);
@@ -39,30 +40,33 @@
        var newfilterset = newtypes.filter || [];
        var newmarks = newtypes.mark || [];
 
-       if(newtypes.collapse) {
-         if(newfilterset.length > 0 || newmarks.length > 0) {
-           $("span#fullscreen").removeClass("hidden")
-
-         } else { alert("Collapsing everything makes no sense! (Nothing marked or filtered)") }
-       } else {
-         $("span#fullscreen").addClass("hidden")
-       }
-
        $(".checkmark").prop("checked",false);
-       newmarks.forEach(function(mark){$("#"+mark).prop("checked",true).addClass("marked")})
+       newmarks.forEach(function(mark){$("#"+mark).prop("checked",true)})
+       newmarks.forEach(function(mark){$("#"+mark.replace(/^check-/,"tr-")).addClass("marked")})
 
        console.log("moving from filters",oldfilterset,"to",newfilterset)
+       var newfilterclass = newfilterset.map(function(f){return "filter-"+f}).join(".")
        if(newfilterset.length==0)
        {
          console.log("No filters enabled")
        } else {
-         newfilterclass = newfilterset.map(function(f){return "filter-"+f}).join(".")
          newfilterset.forEach(function(f){
             $("tr.filter-"+f+" td a.add-filter.filter-"+f).addClass("selected")
             $("tr.filter-"+f+" td a.rm-filter.filter-"+f).removeClass("hidden")
          })
          $("tr."+newfilterclass).addClass("selected")
          $("tr").not(".selected").addClass("hidden")
+       }
+
+       if(newtypes.collapse) {
+         if(newfilterset.length > 0 || newmarks.length > 0) {
+           $("span#fullscreen").removeClass("hidden")
+           if(newmarks.length > 0) {
+             //newmarks.forEach(function{m}(stored_data[stored_map[m]]))
+           }
+         } else { alert("Collapsing everything makes no sense! (Nothing marked or filtered)") }
+       } else {
+         $("span#fullscreen").addClass("hidden")
        }
     }
     function get_filter_name(target)
@@ -92,6 +96,7 @@
     function add_filter(event)
     {
        add_hash_element(get_filter_name(event.target));
+       remove_hash_element("individual-filter")
     }
     function remove_filter(event)
     {
@@ -110,10 +115,23 @@
        return false;
     }
     function clearmarks(){
-       console.log("clearing marked",types(document.location).marked);
+       console.log("clearing marked",types(document.location).mark || []);
+       types(document.location).mark.forEach(function(m){remove_hash_element(m)})
+       remove_hash_element("individual-filter")
     }
-    function collapse(){
-       add_hash_element("collapse-rows")
+    function show_collectively(){
+       if(types(window.location).mark) {
+         add_hash_element("collapse-mark")
+       } else if(types(window.location).filter) {
+         add_hash_element("collapse-filter")
+       }
+    }
+    function show_individually(){
+       remove_hash_element("collapse-filter")
+       remove_hash_element("collapse-mark")
+       if(types(window.location).mark) {
+         add_hash_element("individual-filter")
+       }
     }
     function hash(url){
       return (((new URL(url)).hash)+"").replace("#","")
@@ -165,6 +183,7 @@
              if(stored_data[k].length > 60)
              { stored_data[k].shift();}
              var name = k.replace(/\./g, "_");
+             stored_map[name]=k;
              if(document.getElementById("spark-"+name) && stored_data[k].length > 1){
                 $('#spark-'+name).sparkline(stored_data[k], {type: 'line'})
                 $('#data-overlay-'+name).text(stored_data[k].slice(-1)[0].toFixed(3))
@@ -186,8 +205,8 @@
   <span class="tools">
     <a href="#" title="Clear">&#9003;</a>
     <a onclick="clearmarks()" title="Clear marks">&#9744;</a>
-    <a onclick="split()" title="Show individually">&#10070;</a>
-    <a onclick="collapse()" title="Show collectively">&#9608;</a>
+    <a onclick="show_individually()" title="Show individually">&#10070;</a>
+    <a onclick="show_collectively()" title="Show collectively">&#9608;</a>
   </span>
   <span class="hidden" id="fullscreen"></span>
   <table>
