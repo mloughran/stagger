@@ -35,6 +35,12 @@ func (s *Websocketsender) GetWebsocketSenderHandler() websocket.Handler {
 		s.connections[ws] = sync.NewCond(&sync.Mutex{})
 		s.connections[ws].L.Lock()
 		s.mutex.Unlock()
+		if b, err := json.Marshal(NewTimestampedStatsWithTypes(-1)); err == nil {
+			err := websocket.Message.Send(ws, string(b))
+			if err != nil {
+				log.Println("Web socket: Cannot deliver initial message")
+			}
+		}
 		log.Println("Web socket connected:", ws.RemoteAddr(), "Total connections", len(s.connections))
 		s.connections[ws].Wait()
 	}
