@@ -19,11 +19,15 @@
     <script type="text/javascript" src="jquery.appear.js"></script>
     <script type="text/javascript" src="reconnecting-websocket.js"></script>
     <script type="text/javascript">
-    // add things to selected (+) after graph
-    // change time base
-    // fullscreen graph
-    // add data types
-    // add history
+    // change time base?
+    // fullscreen graph (jqplot)
+    // add data types (to stagger and ruby, tagged as string)
+    // add history (write history to connection when connected)
+    // hourly daily monthly (write to disk)
+    // yesterday (on and off)
+    // iframe parent data source (postmessage) https://developer.mozilla.org/en-US/docs/Web/API/Window.postMessage
+    // read from /var/www/stagger for iframe stuff
+    // hover
     var stored_data = {};
     var stored_time = [];
     var stored_rate = -1;
@@ -39,6 +43,7 @@
        var oldfilterset = oldtypes.filter || [];
        var newfilterset = newtypes.filter || [];
        var newmarks = newtypes.mark || [];
+       var collapse = newtypes.collapse || [];
 
        $(".checkmark").prop("checked",false);
        newmarks.forEach(function(mark){$("#"+mark).prop("checked",true)})
@@ -58,13 +63,12 @@
          $("tr").not(".selected").addClass("hidden")
        }
 
-       if(newtypes.collapse) {
-         if(newfilterset.length > 0 || newmarks.length > 0) {
-           $("span#fullscreen").removeClass("hidden")
-           if(newmarks.length > 0) {
-             //newmarks.forEach(function{m}(stored_data[stored_map[m]]))
-           }
-         } else { alert("Collapsing everything makes no sense! (Nothing marked or filtered)") }
+       if((newtypes.collapse.indexOf("mark") && (newmarks.length > 0)) {
+         $("span#fullscreen").removeClass("hidden")
+         //newmarks.forEach(function{m}(stored_data[stored_map[m]]))
+       } else if((newtypes.collapse.indexOf("filter") && (newfilters.length > 0)) {
+         $("span#fullscreen").removeClass("hidden")
+         //newmarks.forEach(function{m}(stored_data[stored_map[m]]))
        } else {
          $("span#fullscreen").addClass("hidden")
        }
@@ -116,7 +120,7 @@
     }
     function clearmarks(){
        console.log("clearing marked",types(document.location).mark || []);
-       types(document.location).mark.forEach(function(m){remove_hash_element(m)})
+       types(document.location).mark.forEach(function(m){remove_hash_element("mark-"+m)})
        remove_hash_element("individual-filter")
     }
     function show_collectively(){
