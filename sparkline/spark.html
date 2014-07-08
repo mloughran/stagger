@@ -13,18 +13,19 @@
       .rm-filter {font-size:25%; position:relative; top: -2em;}
       tr.marked { background-color: lavender; }
       a.selected { background-color: palegreen; }
-      tr.marked td a.selected { background-color: yellow; }
+      tr.marked td a.selected { background-color: palegoldenrod; }
       a { text-decoration: none; cursor:pointer; color: darkblue;}
       input[type=checkbox] {width:1em; height:1em;}
     </style>
     <script type="text/javascript" src="jquery.js"></script>
     <script type="text/javascript" src="jquery.sparkline.js"></script>
     <script type="text/javascript" src="jquery.appear.js"></script>
+    <script type="text/javascript" src="jquery.jqplot.js"></script>
     <script type="text/javascript" src="reconnecting-websocket.js"></script>
     <script type="text/javascript">
-    // change time base?
+    // variable time base requests in negotiations
     // fullscreen graph (jqplot)
-    // add data types (to stagger and ruby, tagged as string)
+    // add datatypes to ruby, tagged as string)
     // add history (write history to connection when connected)
     // hourly daily monthly (write to disk)
     // yesterday (on and off)
@@ -92,9 +93,11 @@
     {
        var hash = window.location.hash.replace("#","").split(" ")
        console.log("adding hash element",name,"to",hash)
+       var changed = false;
        if(hash.indexOf(name)===-1)
-         { hash.push(name);}
+         { hash.push(name); changed = true;}
        window.location.hash = hash.join(" ").replace(/^ /,"")
+       return changed;
     }
     function remove_hash_element(name)
     {
@@ -103,8 +106,11 @@
     }
     function add_filter(event)
     {
-       add_hash_element(get_filter_name(event.target));
-       remove_hash_element("individual-filter")
+       if(add_hash_element(get_filter_name(event.target))){
+          remove_hash_element("individual-filter")
+       } else {
+          add_hash_element(target.parent.parent.id.replace("tr-","mark-"))
+       }
     }
     function remove_filter(event)
     {
