@@ -1,6 +1,25 @@
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
 <head>
    <style>
+     .tools {
+        padding: 6px 6px 4px 6px;
+        height: 40px;
+        line-height: 100%;
+        border-radius: 2px;
+        -webkit-border-radius: 2px;
+        -moz-border-radius: 2px;
+        box-shadow: 2px 2px 2px #666666;
+        -webkit-box-shadow: 2px 2px 2px #666666;
+        -moz-box-shadow: 2px 2px 2px #666666;
+        background: #CBCBCB;
+        position:relative;
+        z-index:999;
+        font-size:200%;
+        position: fixed;
+        top: 0px;
+        right: 0px;
+      }
+      #set { margin-top: 40px; }
       .canvas { z-order: 1; opacity: 0.8; }
       .data-overlay { position: relative; width:0; height: 0;}
       .data-overlay-inner { position: absolute; left: 10px; z-order:-1;}
@@ -9,7 +28,6 @@
       table tbody {width: 100%; max-width: 100%;}
       table tbody tr {white-space: nowrap;}
       .hidden { display: none; }
-      .tools { font-size:200%; position: fixed; top: 0px; right: 0px; }
       .rm-filter {font-size:25%; position:relative; top: -2em;}
       tr.marked { background-color: lavender; }
       a.selected { background-color: palegreen; }
@@ -17,21 +35,13 @@
       a { text-decoration: none; cursor:pointer; color: darkblue;}
       input[type=checkbox] {width:1em; height:1em;}
     </style>
+    <link rel="stylesheet" type="text/css" href="jquery.jqplot.css">
     <script type="text/javascript" src="jquery.js"></script>
     <script type="text/javascript" src="jquery.sparkline.js"></script>
     <script type="text/javascript" src="jquery.appear.js"></script>
     <script type="text/javascript" src="jquery.jqplot.js"></script>
     <script type="text/javascript" src="reconnecting-websocket.js"></script>
     <script type="text/javascript">
-    // variable time base requests in negotiations
-    // fullscreen graph (jqplot)
-    // add datatypes to ruby, tagged as string)
-    // add history (write history to connection when connected)
-    // hourly daily monthly (write to disk)
-    // yesterday (on and off)
-    // iframe parent data source (postmessage) https://developer.mozilla.org/en-US/docs/Web/API/Window.postMessage
-    // read from /var/www/stagger json for iframe stuff
-    // hover
     var stored_data = {};
     var stored_time = [];
     var stored_rate = -1;
