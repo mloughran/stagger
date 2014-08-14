@@ -78,15 +78,30 @@
          $("tr").not(".selected").addClass("hidden")
        }
 
-       //if((newtypes.collapse.indexOf("mark") && (newmarks.length > 0)){
-       //  $("span#fullscreen").removeClass("hidden")
-       //  //newmarks.forEach(function{m}(stored_data[stored_map[m]]))
-       //} else if((newtypes.collapse.indexOf("filter") && (newfilters.length > 0)) {
-       //  $("span#fullscreen").removeClass("hidden")
-       //  //newmarks.forEach(function{m}(stored_data[stored_map[m]]))
-       //} else {
-         $("span#fullscreen").addClass("hidden")
-       //}
+       if((collapse.indexOf("mark")!=-1) && (newmarks.length > 0)) {
+         $("#fullscreen").removeClass("hidden")
+         $("#set").addClass("hidden")
+         var fullscreen_data = newmarks.map(function(mark){
+             return stored_data[stored_map[mark.replace(/^check-/,"")]].map(function(v,i){return [stored_time[i],v]});
+         });
+         console.log("Showing fullscreen mark graph",collapse,newmarks,fullscreen_data);
+         $.jqplot('fullscreen',  fullscreen_data,
+               { title:'Marked Data',
+         });
+       } else if((collapse.indexOf("filter")!=-1) && (newfilterset.length > 0)) {
+         $("#fullscreen").removeClass("hidden")
+         $("#set").addClass("hidden")
+         var fullscreen_data = newfilterset.map(function(mark){
+             return stored_data[stored_map[mark.replace(/^filter-/,"")]].map(function(v,i){return [stored_time[i],v]});
+         });
+         console.log("Showing fullscreen filter graph",collapse,newmarks,fullscreen_data);
+         $.jqplot('fullscreen',  fullscreen_data,
+               { title:'Marked Data',
+         });
+       } else {
+         $("#fullscreen").addClass("hidden")
+         $("#set").removeClass("hidden")
+       }
     }
     function get_filter_name(target)
     {
@@ -195,7 +210,7 @@
          data = JSON.parse(evt.data);
          if(document.getElementById("set").childNodes.length>0)
          { $('#waiting').remove() }
-         stored_time.push(data["Timestamp"]);
+         if(data["Timestamp"]>0) {stored_time.push(data["Timestamp"])};
          if( stored_rate < 0 && stored_time.length > 1) {
            stored_rate = stored_time[1] - stored_time[0];
            console.log("Rate is",stored_rate,"seconds")
@@ -241,7 +256,7 @@
     <a onclick="show_individually()" title="Show individually">Split</a> |
     <a onclick="show_collectively()" title="Show collectively">Combine</a>
   </span>
-  <span class="hidden" id="fullscreen"></span>
+  <div class="hidden" id="fullscreen" style="height:400px;width:300px;"></div>
   <table>
     <tbody id="set">
     </tbody>
