@@ -72,16 +72,16 @@ func (self *Aggregator) report(ts int64) {
 }
 
 // TODO: Not sure about these functions
-func (self *Aggregator) Count(ts int64, name string, value Count) {
+func (self *Aggregator) Count(ts int64, name string, value Count, Type string) {
 	self.Stats <- &Stats{
 		Timestamp: ts,
-		Counts:    []StatCount{StatCount{name, float64(value)}},
+		Counts:    []StatCount{StatCount{name, float64(value), &Type}},
 	}
 }
 
-func (self *Aggregator) Value(ts int64, name string, value float64) {
+func (self *Aggregator) Value(ts int64, name string, value float64, Type string) {
 	self.Stats <- &Stats{
 		Timestamp: ts,
-		Values:    []StatValue{StatValue{name, value}},
+		Values:    []StatValue{StatValue{name, value, &Type}},
 	}
 }

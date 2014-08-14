@@ -118,7 +118,12 @@ func main() {
 		}
 		if _, ok := http_features["sparkline"]; ok {
 			log.Println("[main] Sparkline enabled at http://" + *http_addr + "/spark.html")
-			js_data := []string{"/jquery.js", "/jquery.sparkline.js", "/jquery.appear.js", "/reconnecting-websocket.js"}
+			js_data := []string{"/jquery.js",
+				"/jquery.sparkline.js",
+				"/jquery.appear.js",
+				"/jquery.jqplot.js",
+				"/jquery.jqplot.css",
+				"/reconnecting-websocket.js"}
 
 			for _, n := range js_data {
 				js, _ := Asset("sparkline" + n)
@@ -134,6 +139,15 @@ func main() {
 					w.Header().Set("Content-Type", "text/html")
 					http.ServeContent(w, req, "spark", time.Time{}, bytes.NewReader(hb))
 				})
+			http.HandleFunc("/",
+				func(w http.ResponseWriter, req *http.Request) {
+					if req.URL.Path != "/" {
+						http.NotFound(w, req)
+						return
+					}
+					http.Redirect(w, req, "/spark", http.StatusFound)
+				})
+
 		}
 		if *http_addr != "" {
 			go func() {
