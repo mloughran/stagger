@@ -106,6 +106,7 @@
     }
     function add_filter(event)
     {
+       history.pushState(null,null,window.location)
        if(add_hash_element(get_filter_name(event.target))){
           remove_hash_element("individual-filter")
        } else {
@@ -114,6 +115,7 @@
     }
     function remove_filter(event)
     {
+       history.pushState(null,null,window.location)
        remove_hash_element(get_filter_name(event.target));
     }
     function toggle_mark(event)
@@ -129,11 +131,13 @@
        return false;
     }
     function clearmarks(){
+       history.pushState(null,null,window.location)
        console.log("clearing marked",types(document.location).mark || []);
        types(document.location).mark.forEach(function(m){remove_hash_element("mark-"+m)})
        remove_hash_element("individual-filter")
     }
     function show_collectively(){
+       history.pushState(null,null,window.location)
        if(types(window.location).mark) {
          add_hash_element("collapse-mark")
        } else if(types(window.location).filter) {
@@ -141,6 +145,7 @@
        }
     }
     function show_individually(){
+       history.pushState(null,null,window.location)
        remove_hash_element("collapse-filter")
        remove_hash_element("collapse-mark")
        if(types(window.location).mark) {
