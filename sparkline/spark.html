@@ -91,12 +91,14 @@
        } else if((collapse.indexOf("filter")!=-1) && (newfilterset.length > 0)) {
          $("#fullscreen").removeClass("hidden")
          $("#set").addClass("hidden")
-         var fullscreen_data = newfilterset.map(function(mark){
-             return stored_data[stored_map[mark.replace(/^filter-/,"")]].map(function(v,i){return [stored_time[i],v]});
+         var newtrs = $.map($("tr.selected"),function(m){return m.id});
+         var fullscreen_data = newtrs.map(function(mark){
+             console.log(mark,stored_data[stored_map[mark.replace(/^tr-/,"")]]);
+             return stored_data[stored_map[mark.replace(/^tr-/,"")]].map(function(v,i){return [stored_time[i],v]});
          });
-         console.log("Showing fullscreen filter graph",collapse,newmarks,fullscreen_data);
+         console.log("Showing fullscreen mark graph",collapse,newfilterset,fullscreen_data);
          $.jqplot('fullscreen',  fullscreen_data,
-               { title:'Marked Data',
+               { title:'Filtered Data',
          });
        } else {
          $("#fullscreen").addClass("hidden")
@@ -256,7 +258,7 @@
     <a onclick="show_individually()" title="Show individually">Split</a> |
     <a onclick="show_collectively()" title="Show collectively">Combine</a>
   </span>
-  <div class="hidden" id="fullscreen" style="height:400px;width:300px;"></div>
+  <div class="hidden" id="fullscreen" style="height:100%;width:100%;"></div>
   <table>
     <tbody id="set">
     </tbody>
