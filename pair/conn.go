@@ -1,7 +1,7 @@
 package pair
 
 import (
-	zmq "github.com/pebbe/zmq4"
+	zmq "github.com/pebbe/zmq3"
 )
 
 type Conn struct {

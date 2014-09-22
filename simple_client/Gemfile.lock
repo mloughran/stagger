@@ -1,25 +1,23 @@
 GIT
   remote: git@github.com:pusher/stagger-ruby-em.git
-  revision: 5994198627c5dff9a7e56cd22eb3dee804e12f76
+  revision: f230f1602e7e268baaaa4dfec884a6cb06ab4973
   branch: master
   specs:
     stagger (0.0.1)
-      em-zeromq (~> 0.5.0)
+      em-zeromq (~> 0.4.2)
       msgpack
 
 GEM
   remote: https://rubygems.org/
   specs:
-    em-zeromq (0.5.0)
+    em-zeromq (0.4.2)
       eventmachine (>= 1.0.0)
       ffi (>= 1.0.0)
-      ffi-rzmq (~> 2.0.1)
+      ffi-rzmq (~> 1.0.1)
     eventmachine (1.0.3)
     ffi (1.9.3)
-    ffi-rzmq (2.0.1)
-      ffi-rzmq-core (>= 1.0.1)
-    ffi-rzmq-core (1.0.3)
-      ffi (~> 1.9)
+    ffi-rzmq (1.0.3)
+      ffi
     msgpack (0.5.8)
 
 PLATFORMS
