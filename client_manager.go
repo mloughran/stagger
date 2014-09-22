@@ -70,7 +70,7 @@ func (self *ClientManager) Run(ticker <-chan (time.Time), timeout int, ts_comple
 				outstanding_stats[ts] = len(clients)
 
 				// Record metric for number registered clients
-				self.agg.Count(ts, "stagger.clients", Count(len(clients)),"count")
+				self.agg.Count(ts, "stagger.clients", Count(len(clients)), "count")
 
 				for _, client := range clients {
 					client.RequestStats(ts)
