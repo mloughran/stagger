@@ -61,7 +61,7 @@ func (c *Client) Run(clientDidClose chan<- int) {
 			ts = stats.Timestamp
 			c.statsc <- &stats
 		} else {
-			info.Printf("Error decoding msgpack data: %v", data)
+			info.Printf("[%v] Error decoding msgpack data: %v", c.id, data)
 		}
 		return
 	}
@@ -75,22 +75,22 @@ func (c *Client) Run(clientDidClose chan<- int) {
 			if b, err := marshal(message.Params); err == nil {
 				c.pc.Send(message.Method, b)
 			} else {
-				info.Printf("Error encoding as msgpack: %v", message.Params)
+				info.Printf("[%v] Error encoding as msgpack: %v", c.id, message.Params)
 			}
 		case m := <-c.pc.OnMethod:
 			switch m.Method {
 			case "stats_partial":
 				if _, err = handleStats(m.Params); err != nil {
-					info.Printf("Error decoding stats_partial: %v", err)
+					info.Printf("[%v] Error decoding stats_partial: %v", c.id, err)
 				}
 			case "stats_complete":
 				if ts, err = handleStats(m.Params); err != nil {
-					info.Printf("Error decoding stats_complete: %v", err)
+					info.Printf("[%v] Error decoding stats_complete: %v", c.id, err)
 				} else {
 					c.complete <- CompleteMessage{c.Id(), ts}
 				}
 			default:
-				info.Printf("Received unknown command %v", m.Method)
+				info.Printf("[%v] Received unknown command %v", c.id, m.Method)
 			}
 		case <-c.pc.OnClose:
 			clientDidClose <- c.Id()
