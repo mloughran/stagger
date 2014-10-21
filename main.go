@@ -31,15 +31,18 @@ var build string
 
 func main() {
 	hostname, _ := os.Hostname()
-	var source = flag.String("source", hostname, "source (for reporting)")
-	var interval = flag.Int("interval", 10, "stats interval (in seconds)")
-	var timeout = flag.Int("timeout", 1000, "receive timeout (in ms)")
-	var reg_addr = flag.String("registration", "tcp://127.0.0.1:5867", "address to which clients register")
-	var log_output = flag.Bool("log_output", true, "log aggregated data")
-	var librato_email = flag.String("librato_email", "", "librato email")
-	var librato_token = flag.String("librato_token", "", "librato token")
-	var showBuild = flag.Bool("build", false, "Print build information")
+	var (
+		source        = flag.String("source", hostname, "source (for reporting)")
+		interval      = flag.Int("interval", 10, "stats interval (in seconds)")
+		timeout       = flag.Int("timeout", 1000, "receive timeout (in ms)")
+		reg_addr      = flag.String("registration", "tcp://127.0.0.1:5867", "address to which clients register")
+		log_output    = flag.Bool("log_output", true, "log aggregated data")
+		librato_email = flag.String("librato_email", "", "librato email")
+		librato_token = flag.String("librato_token", "", "librato token")
+		showBuild     = flag.Bool("build", false, "Print build information")
+	)
 	flag.Parse()
+
 	if *showBuild {
 		if len(build) > 0 {
 			fmt.Println(build)
