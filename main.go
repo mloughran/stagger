@@ -24,10 +24,11 @@ func (d debugger) Print(args ...interface{}) {
 	}
 }
 
-const debug debugger = false
-const info debugger = true
-
-var build string
+var (
+	debug debugger = false
+	info  debugger = true
+	build string
+)
 
 func main() {
 	hostname, _ := os.Hostname()
@@ -40,8 +41,13 @@ func main() {
 		librato_email = flag.String("librato_email", "", "librato email")
 		librato_token = flag.String("librato_token", "", "librato token")
 		showBuild     = flag.Bool("build", false, "Print build information")
+		showDebug     = flag.Bool("debug", false, "Print debug information")
 	)
 	flag.Parse()
+
+	if showDebug != nil && *showDebug {
+		debug = true
+	}
 
 	if *showBuild {
 		if len(build) > 0 {
