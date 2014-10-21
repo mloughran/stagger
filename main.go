@@ -43,6 +43,7 @@ func main() {
 		timeout       = flag.Int("timeout", 1000, "receive timeout (in ms)")
 		reg_addr      = flag.String("registration", "tcp://127.0.0.1:5867", "address to which clients register")
 		log_output    = flag.Bool("log_output", true, "log aggregated data")
+		influxdb_url  = flag.String("influxdb_url", "", "influxdb URL")
 		librato_email = flag.String("librato_email", "", "librato email")
 		librato_token = flag.String("librato_token", "", "librato token")
 		showDebug     = flag.Bool("debug", false, "Print debug information")
@@ -73,6 +74,17 @@ func main() {
 		librato := NewLibrato(*source, *librato_email, *librato_token)
 		go librato.Run()
 		output.Add(librato)
+	}
+
+	if *influxdb_url != "" {
+		influxdb, err := NewInfluxDB(*source, *influxdb_url)
+		if err != nil {
+			log.Println("InfluxDB error: ", err)
+			return
+		} else {
+			go influxdb.Run()
+			output.Add(influxdb)
+		}
 	}
 
 	if *log_output {
