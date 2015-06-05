@@ -1,8 +1,8 @@
 package main
 
 import (
-	"./pair"
 	"fmt"
+	"github.com/pusher/stagger/pair"
 )
 
 type StatsEnvelope struct {

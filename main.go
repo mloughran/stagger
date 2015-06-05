@@ -1,13 +1,13 @@
 package main
 
 import (
-	"./pair"
 	"bytes"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/pem"
 	"flag"
 	"fmt"
+	"github.com/pusher/stagger/pair"
 	"io/ioutil"
 	"log"
 	"net/http"

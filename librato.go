@@ -3,9 +3,9 @@
 package main
 
 import (
-	"./httpclient"
 	"bytes"
 	"encoding/json"
+	"github.com/pusher/stagger/httpclient"
 	"io/ioutil"
 	"net/http"
 	"time"

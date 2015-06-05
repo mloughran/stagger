@@ -5,7 +5,7 @@
 package main
 
 import (
-	"./pair"
+	"github.com/pusher/stagger/pair"
 	"time"
 )
 
