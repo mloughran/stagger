@@ -2,7 +2,6 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"github.com/pusher/stagger/pair"
 	"log"
 	"os"
@@ -30,6 +29,12 @@ var (
 	build string
 )
 
+func init() {
+	if len(build) == 0 {
+		build = "Build with `go build -ldflags \"-X main.build <info-string>\"` to include build information in binary"
+	}
+}
+
 func main() {
 	hostname, _ := os.Hostname()
 	var (
@@ -40,22 +45,12 @@ func main() {
 		log_output    = flag.Bool("log_output", true, "log aggregated data")
 		librato_email = flag.String("librato_email", "", "librato email")
 		librato_token = flag.String("librato_token", "", "librato token")
-		showBuild     = flag.Bool("build", false, "Print build information")
 		showDebug     = flag.Bool("debug", false, "Print debug information")
 	)
 	flag.Parse()
 
 	if showDebug != nil && *showDebug {
 		debug = true
-	}
-
-	if *showBuild {
-		if len(build) > 0 {
-			fmt.Println(build)
-		} else {
-			fmt.Println("Build with `go build -ldflags \"-X main.build <info-string>\"` to include build information in binary")
-		}
-		os.Exit(0)
 	}
 
 	ts_complete := make(chan int64)
@@ -87,7 +82,7 @@ func main() {
 
 	go output.Run(aggregator.output)
 
-	info.Printf("[main] Stagger running")
+	info.Printf("[main] Stagger running. %s", build)
 
 	// Handle termination
 	c := make(chan os.Signal, 1)
