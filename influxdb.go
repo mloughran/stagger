@@ -67,8 +67,8 @@ func (x *InfluxDB) post(stats *TimestampedStats) {
 
 	for key, value := range stats.Counters {
 		points[index] = influxdb.Point{
-			Measurement: key,
-			Tags:        x.tags,
+			Measurement: key.Name(),
+			Tags:        mergeTags(x.tags, key.Tags()),
 			Time:        now,
 			Fields:      map[string]interface{}{"value": value},
 			Precision:   "s",
@@ -78,8 +78,8 @@ func (x *InfluxDB) post(stats *TimestampedStats) {
 
 	for key, value := range stats.Dists {
 		points[index] = influxdb.Point{
-			Measurement: key,
-			Tags:        x.tags,
+			Measurement: key.Name(),
+			Tags:        mergeTags(x.tags, key.Tags()),
 			Time:        now,
 			Fields: map[string]interface{}{
 				"value":       value.N,
@@ -107,4 +107,23 @@ func (x *InfluxDB) post(stats *TimestampedStats) {
 	} else {
 		info.Printf("[influxdb] %v", ret)
 	}
+}
+
+func mergeTags(t1 map[string]string, t2 map[string]string) map[string]string {
+	var ret map[string]string
+	if t1 != nil {
+		ret = make(map[string]string, len(t1))
+		for k, v := range t1 {
+			ret[k] = v
+		}
+	}
+	if t2 != nil {
+		if ret == nil {
+			ret = make(map[string]string)
+		}
+		for k, v := range t2 {
+			ret[k] = v
+		}
+	}
+	return ret
 }

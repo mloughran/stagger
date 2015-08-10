@@ -51,15 +51,21 @@ func (l *Librato) Send(stats *TimestampedStats) {
 func (l *Librato) post(stats *TimestampedStats) {
 	gagues := make([]map[string]interface{}, 0)
 	for key, value := range stats.Counters {
+		if key.HasTags() {
+			continue
+		}
 		gagues = append(gagues, map[string]interface{}{
-			"name":  key,
+			"name":  key.Name(),
 			"value": value,
 		})
 	}
 
 	for key, value := range stats.Dists {
+		if key.HasTags() {
+			continue
+		}
 		gagues = append(gagues, map[string]interface{}{
-			"name":        key,
+			"name":        key.Name(),
 			"count":       value.N,
 			"sum":         value.Sum_x,
 			"sum_squares": value.Sum_x2,
