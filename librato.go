@@ -5,7 +5,6 @@ package main
 import (
 	"bytes"
 	"encoding/json"
-	"github.com/pusher/stagger/httpclient"
 	"io/ioutil"
 	"net/http"
 	"time"
@@ -25,8 +24,10 @@ func NewLibrato(source, email, token string) *Librato {
 		email:  email,
 		token:  token,
 		// Handle slow posts by combination of buffering channel & timing out
-		on_stats:   make(chan *TimestampedStats, 100),
-		httpclient: httpclient.NewTimeoutClient(2 * time.Second),
+		on_stats: make(chan *TimestampedStats, 100),
+		httpclient: &http.Client{
+			Timeout: 2 * time.Second,
+		},
 	}
 }
 
