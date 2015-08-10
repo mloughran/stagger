@@ -7,13 +7,13 @@ import (
 )
 
 type InfluxDB struct {
-	source   string
+	tags     map[string]string
 	client   *influxdb.Client
 	db       string
 	on_stats chan *TimestampedStats
 }
 
-func NewInfluxDB(source, rawurl string) (client *InfluxDB, err error) {
+func NewInfluxDB(tags map[string]string, rawurl string) (client *InfluxDB, err error) {
 	url, err := uri.Parse(rawurl)
 	if err != nil {
 		return
@@ -37,7 +37,7 @@ func NewInfluxDB(source, rawurl string) (client *InfluxDB, err error) {
 		return
 	}
 
-	client = &InfluxDB{source, realclient, db, make(chan *TimestampedStats, 100)}
+	client = &InfluxDB{tags, realclient, db, make(chan *TimestampedStats, 100)}
 	return
 }
 
@@ -68,7 +68,7 @@ func (x *InfluxDB) post(stats *TimestampedStats) {
 	for key, value := range stats.Counters {
 		points[index] = influxdb.Point{
 			Measurement: key,
-			Tags:        map[string]string{"source": x.source},
+			Tags:        x.tags,
 			Time:        now,
 			Fields:      map[string]interface{}{"value": value},
 			Precision:   "s",
@@ -79,7 +79,7 @@ func (x *InfluxDB) post(stats *TimestampedStats) {
 	for key, value := range stats.Dists {
 		points[index] = influxdb.Point{
 			Measurement: key,
-			Tags:        map[string]string{"source": x.source},
+			Tags:        x.tags,
 			Time:        now,
 			Fields: map[string]interface{}{
 				"value":       value.N,

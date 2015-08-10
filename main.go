@@ -48,6 +48,8 @@ func main() {
 		librato_token = flag.String("librato_token", "", "librato token")
 		showDebug     = flag.Bool("debug", false, "Print debug information")
 	)
+	tags := NewTagsValue(hostname)
+	flag.Var(tags, "tag", "adds key=value to stats (only influxdb)")
 	flag.Parse()
 
 	if showDebug != nil && *showDebug {
@@ -77,7 +79,7 @@ func main() {
 	}
 
 	if *influxdb_url != "" {
-		influxdb, err := NewInfluxDB(*source, *influxdb_url)
+		influxdb, err := NewInfluxDB(tags.Value(), *influxdb_url)
 		if err != nil {
 			log.Println("InfluxDB error: ", err)
 			return
