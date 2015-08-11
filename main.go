@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"github.com/pusher/stagger/pair"
+	"github.com/pusher/stagger/tcp"
 	"log"
 	"os"
 	"os/signal"
@@ -41,6 +42,7 @@ func main() {
 		source        = flag.String("source", hostname, "source (for reporting)")
 		interval      = flag.Int("interval", 10, "stats interval (in seconds)")
 		timeout       = flag.Int("timeout", 1000, "receive timeout (in ms)")
+		tcp_addr      = flag.String("addr", "tcp://127.0.0.1:5866", "adress for the TCP mode")
 		reg_addr      = flag.String("registration", "tcp://127.0.0.1:5867", "address to which clients register")
 		log_output    = flag.Bool("log_output", true, "log aggregated data")
 		influxdb_url  = flag.String("influxdb_url", "", "influxdb URL")
@@ -66,6 +68,13 @@ func main() {
 
 	client_manager := NewClientManager(aggregator)
 	go client_manager.Run(ticker, *timeout, ts_complete, ts_new)
+
+	tcp_server, err := tcp.NewServer(*tcp_addr, client_manager)
+	if err != nil {
+		log.Println("invalid address: ", err)
+		return
+	}
+	go tcp_server.Run()
 
 	pair_server := pair.NewServer(*reg_addr, client_manager)
 	go pair_server.Run()
@@ -101,6 +110,7 @@ func main() {
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 	<-c
+	tcp_server.Shutdown()
 	pair_server.Shutdown()
 	client_manager.Shutdown()
 	info.Print("[main] Exiting cleanly")
