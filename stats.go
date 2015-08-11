@@ -14,12 +14,6 @@ type TimestampedStats struct {
 	Empty     bool
 }
 
-var TypeCache TypeMap
-
-func init() {
-	TypeCache = make(TypeMap)
-}
-
 func NewTimestampedStats(ts int64) *TimestampedStats {
 	return &TimestampedStats{
 		ts,
@@ -30,22 +24,11 @@ func NewTimestampedStats(ts int64) *TimestampedStats {
 	}
 }
 
-func NewTimestampedStatsWithTypes(ts int64) *TimestampedStats {
-	return &TimestampedStats{
-		ts,
-		DistMap{},
-		CounterMap{},
-		TypeCache,
-		true,
-	}
-}
-
 func (self TimestampedStats) AddCount(s StatCount) {
 	self.Empty = false
 	self.Counters[s.Name] += s.Count
 	if s.Type != nil {
 		self.Types[s.Name] = s.Type
-		TypeCache[s.Name] = s.Type
 	}
 }
 
@@ -58,7 +41,6 @@ func (self TimestampedStats) AddValue(s StatValue) {
 	}
 	if s.Type != nil {
 		self.Types[s.Name] = s.Type
-		TypeCache[s.Name] = s.Type
 	}
 }
 
@@ -72,7 +54,6 @@ func (self TimestampedStats) AddDist(s StatDist) {
 	}
 	if s.Type != nil {
 		self.Types[s.Name] = s.Type
-		TypeCache[s.Name] = s.Type
 	}
 }
 
