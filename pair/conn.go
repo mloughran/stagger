@@ -36,6 +36,10 @@ func (c *Conn) Send(method string, params []byte) {
 func (c *Conn) Run() {
 	recvMessage := make(chan ([][]byte), 1)
 	shouldClose := false
+	defer func() {
+		shouldClose = true
+		c.OnClose <- true
+	}()
 
 	pair, _ := zmq.NewSocket(zmq.PAIR)
 
@@ -74,11 +78,6 @@ func (c *Conn) Run() {
 				recvMessage <- parts
 			}
 		}
-	}()
-
-	defer func() {
-		shouldClose = true
-		c.OnClose <- true
 	}()
 
 	// send method for use by this goroutine
