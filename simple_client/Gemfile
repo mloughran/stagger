@@ -1,2 +1,0 @@
-source 'https://rubygems.org'
-gem "stagger", git: "git@github.com:pusher/stagger-ruby-em.git", branch: "master"
