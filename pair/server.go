@@ -66,7 +66,7 @@ func (self *Server) Run() {
 			}
 			// Needs time to send shutdown - 1ms was brittle, 50ms is generous
 			// TODO: Find a way to do this which doesn't rely on timing
-			<-time.After(50 * time.Millisecond)
+			time.Sleep(50 * time.Millisecond)
 			self.didShutdown <- true
 		}
 	}

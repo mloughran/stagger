@@ -78,7 +78,7 @@ func (self *ClientManager) Run(ticker <-chan (time.Time), timeout int, ts_comple
 
 				// Setup timeout to receive all the data
 				go func(ts int64) {
-					<-time.After(time.Duration(timeout) * time.Millisecond)
+					time.Sleep(time.Duration(timeout) * time.Millisecond)
 					on_timeout <- ts
 				}(ts)
 			} else {
