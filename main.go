@@ -76,8 +76,7 @@ func main() {
 	}
 
 	if *log_output {
-		stdout := NewStdOut()
-		output.Add(stdout)
+		output.Add(StdoutOutputter)
 	}
 
 	go output.Run(aggregator.output)

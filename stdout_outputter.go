@@ -6,13 +6,11 @@ import (
 	"sort"
 )
 
-type StdOut struct{}
+type stdout bool
 
-func NewStdOut() *StdOut {
-	return &StdOut{}
-}
+var StdoutOutputter = stdout(true)
 
-func (self *StdOut) Send(stats *TimestampedStats) {
+func (self stdout) Send(stats *TimestampedStats) {
 	var heading = fmt.Sprintf("[output] (ts:%v) Aggregated data:\n", stats.Timestamp)
 
 	var output []string
