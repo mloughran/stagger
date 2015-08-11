@@ -4,6 +4,7 @@ import (
 	influxdb "github.com/influxdb/influxdb/client"
 	uri "net/url"
 	"path"
+	"time"
 )
 
 type InfluxDB struct {
@@ -69,7 +70,7 @@ func (x *InfluxDB) post(stats *TimestampedStats) {
 		points[index] = influxdb.Point{
 			Measurement: key.Name(),
 			Tags:        mergeTags(x.tags, key.Tags()),
-			Time:        now,
+			Time:        time.Unix(now, 0),
 			Fields:      map[string]interface{}{"value": value},
 			Precision:   "s",
 		}
@@ -80,7 +81,7 @@ func (x *InfluxDB) post(stats *TimestampedStats) {
 		points[index] = influxdb.Point{
 			Measurement: key.Name(),
 			Tags:        mergeTags(x.tags, key.Tags()),
-			Time:        now,
+			Time:        time.Unix(now, 0),
 			Fields: map[string]interface{}{
 				"value":       value.N,
 				"sum":         value.Sum_x,

@@ -5,34 +5,40 @@
 package main
 
 import (
-	"github.com/pusher/stagger/pair"
+	"github.com/pusher/stagger/conn"
 	"time"
 )
 
 // Sent by clients when they have finished receiving data for a timestamp
 type CompleteMessage struct {
-	ClientId  int
+	ClientId  int64
 	Timestamp int64
 }
 
 type ClientManager struct {
-	add_client_c chan (*Client)
-	rem_client_c chan (*Client)
+	add_client_c chan conn.Connection
+	rem_client   chan conn.Client
+	sigShutdown  chan bool
+	didShutdown  chan bool
 	onComplete   chan (CompleteMessage)
 	agg          *Aggregator
+	index        int64
 }
 
 func NewClientManager(a *Aggregator) *ClientManager {
 	return &ClientManager{
-		make(chan (*Client)),
-		make(chan (*Client)),
+		make(chan conn.Connection),
+		make(chan conn.Client),
+		make(chan bool),
+		make(chan bool),
 		make(chan CompleteMessage),
 		a,
+		0,
 	}
 }
 
-func (self *ClientManager) Run(ticker <-chan (time.Time), timeout int, ts_complete, ts_new chan<- (int64)) {
-	clients := make(map[int]*Client)
+func (self *ClientManager) Run(ticker <-chan (time.Time), timeout int, ts_complete, ts_new chan<- int64) {
+	clients := make(map[int64]conn.Client)
 
 	outstanding_stats := map[int64]int{}
 
@@ -51,11 +57,15 @@ func (self *ClientManager) Run(ticker <-chan (time.Time), timeout int, ts_comple
 
 	for {
 		select {
-		case client := <-self.add_client_c:
-			clients[client.Id()] = client
+		case conn := <-self.add_client_c:
+			self.index += 1
+			client := NewClient(self.index, conn, "", self.agg.Stats, self.onComplete)
+			clients[self.index] = client
+			go client.Run(self.rem_client)
+
 			info.Printf("[cm] Added client id:%v (count: %v)", client.Id(), len(clients))
 
-		case client := <-self.rem_client_c:
+		case client := <-self.rem_client:
 			delete(clients, client.Id())
 			info.Printf("[cm] Removed client id:%v (count: %v)", client.Id(), len(clients))
 
@@ -110,18 +120,25 @@ func (self *ClientManager) Run(ticker <-chan (time.Time), timeout int, ts_comple
 					ts_complete <- ts
 				}
 			}
+		case <-self.sigShutdown:
+			info.Printf("[cm] Requesting shutdown from clients")
+			for _, client := range clients {
+				client.Shutdown()
+			}
+
+			// TODO: wait for all of the clients to disappear
+			time.Sleep(1 * time.Second)
+
+			self.didShutdown <- true
 		}
 	}
 }
 
-func (self *ClientManager) AddClient(client interface{}) {
-	self.add_client_c <- client.(*Client)
+func (self *ClientManager) NewClient(c conn.Connection) {
+	self.add_client_c <- c
 }
 
-func (self *ClientManager) RemoveClient(client interface{}) {
-	self.rem_client_c <- client.(*Client)
-}
-
-func (self *ClientManager) NewClient(id int, pc *pair.Conn) pair.Pairable {
-	return pair.Pairable(NewClient(id, pc, "", self.agg.Stats, self.onComplete))
+func (self *ClientManager) Shutdown() {
+	self.sigShutdown <- true
+	<-self.didShutdown
 }

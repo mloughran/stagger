@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"github.com/pusher/stagger/pair"
+	"github.com/pusher/stagger/conn"
 )
 
 type StatsEnvelope struct {
@@ -20,20 +20,20 @@ type message struct {
 }
 
 type Client struct {
-	id       int
-	pc       *pair.Conn
+	id       int64
+	conn     conn.Connection
 	name     string
 	sendc    chan (message)
 	statsc   chan<- (*Stats)
 	complete chan<- (CompleteMessage)
 }
 
-func NewClient(id int, pc *pair.Conn, meta string, statsc chan<- (*Stats), complete chan<- (CompleteMessage)) *Client {
+func NewClient(id int64, c conn.Connection, meta string, statsc chan<- (*Stats), complete chan<- (CompleteMessage)) *Client {
 	name := fmt.Sprintf("[client:%v-%v]", id, meta)
 	sendc := make(chan message, 1)
 	return &Client{
 		id,
-		pc,
+		c,
 		name,
 		sendc,
 		statsc,
@@ -41,7 +41,7 @@ func NewClient(id int, pc *pair.Conn, meta string, statsc chan<- (*Stats), compl
 	}
 }
 
-func (c *Client) Id() int {
+func (c *Client) Id() int64 {
 	return c.id
 }
 
@@ -54,7 +54,11 @@ func (c *Client) RequestStats(ts int64) {
 	c.Send("report_all", map[string]interface{}{"Timestamp": ts})
 }
 
-func (c *Client) Run(clientDidClose chan<- int) {
+func (c *Client) Shutdown() {
+	c.conn.Shutdown()
+}
+
+func (c *Client) Run(clientDidClose chan<- conn.Client) {
 	handleStats := func(data []byte) (ts int64, err error) {
 		var stats Stats
 		if err = unmarshal(data, &stats); err == nil {
@@ -73,11 +77,11 @@ func (c *Client) Run(clientDidClose chan<- int) {
 		select {
 		case message := <-c.sendc:
 			if b, err := marshal(message.Params); err == nil {
-				c.pc.Send(message.Method, b)
+				c.conn.Send(message.Method, b)
 			} else {
 				info.Printf("[%v] Error encoding as msgpack: %v", c.id, message.Params)
 			}
-		case m := <-c.pc.OnMethod:
+		case m := <-c.conn.OnMethod():
 			switch m.Method {
 			case "stats_partial":
 				if _, err = handleStats(m.Params); err != nil {
@@ -92,8 +96,8 @@ func (c *Client) Run(clientDidClose chan<- int) {
 			default:
 				info.Printf("[%v] Received unknown command %v", c.id, m.Method)
 			}
-		case <-c.pc.OnClose:
-			clientDidClose <- c.Id()
+		case <-c.conn.OnClose():
+			clientDidClose <- c
 			return
 		}
 	}

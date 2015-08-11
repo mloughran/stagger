@@ -67,7 +67,7 @@ func main() {
 	client_manager := NewClientManager(aggregator)
 	go client_manager.Run(ticker, *timeout, ts_complete, ts_new)
 
-	pair_server := pair.NewServer(*reg_addr, pair.ServerDelegate(client_manager))
+	pair_server := pair.NewServer(*reg_addr, client_manager)
 	go pair_server.Run()
 
 	output := NewOutput()
@@ -102,5 +102,6 @@ func main() {
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 	<-c
 	pair_server.Shutdown()
+	client_manager.Shutdown()
 	info.Print("[main] Exiting cleanly")
 }

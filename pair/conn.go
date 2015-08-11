@@ -2,24 +2,20 @@ package pair
 
 import (
 	zmq "github.com/pebbe/zmq3"
+	"github.com/pusher/stagger/conn"
 )
 
 type Conn struct {
-	OnMethod      chan zmqMessage
-	OnClose       chan bool
-	sendMessage   chan zmqMessage
+	onMethod      chan conn.Message
+	onClose       chan bool
+	sendMessage   chan conn.Message
 	addr          string
 	shouldConnect bool
 }
 
-type zmqMessage struct {
-	Method string
-	Params []byte
-}
-
 // NewConn creates a Connection. You must select on OnMethod and OnClose
 func NewConn() *Conn {
-	return &Conn{make(chan zmqMessage), make(chan bool), make(chan zmqMessage, 1), "", false}
+	return &Conn{make(chan conn.Message), make(chan bool), make(chan conn.Message, 1), "", false}
 }
 
 // ShouldConnect notifies the Connection that it should Connect when Run called
@@ -30,7 +26,19 @@ func (c *Conn) ShouldConnect(addr string) {
 
 // Send sends a message to the Connection
 func (c *Conn) Send(method string, params []byte) {
-	c.sendMessage <- zmqMessage{method, params}
+	c.sendMessage <- conn.Message{method, params}
+}
+
+func (c *Conn) OnMethod() <-chan conn.Message {
+	return c.onMethod
+}
+
+func (c *Conn) OnClose() <-chan bool {
+	return c.onClose
+}
+
+func (c *Conn) Shutdown() {
+	c.Send("pair:shutdown", nil)
 }
 
 func (c *Conn) Run() {
@@ -38,7 +46,7 @@ func (c *Conn) Run() {
 	shouldClose := false
 	defer func() {
 		shouldClose = true
-		c.OnClose <- true
+		c.onClose <- true
 	}()
 
 	pair, _ := zmq.NewSocket(zmq.PAIR)
@@ -119,7 +127,7 @@ func (c *Conn) Run() {
 					info.Printf("[pair] Unexpected message %v with %v parts", s, len(parts))
 				} else {
 					debug.Printf("[pair] Received message %s", s)
-					c.OnMethod <- zmqMessage{s, parts[1]}
+					c.onMethod <- conn.Message{s, parts[1]}
 				}
 			}
 		}
