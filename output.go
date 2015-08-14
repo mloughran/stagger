@@ -35,7 +35,7 @@ func (o *Output) Run(complete_chan <-chan (*TimestampedStats)) {
 			output_stat := OutputStat{stats.Timestamp, value}
 
 			if b, err := marshal(output_stat); err == nil {
-				pub.Send(key, zmq.SNDMORE) // Use stat name as channel?
+				pub.Send(key.String(), zmq.SNDMORE) // Use stat name as channel?
 				pub.SendBytes(b, 0)
 			} else {
 				info.Printf("Error encoding as msgpack: %v", output_stat)

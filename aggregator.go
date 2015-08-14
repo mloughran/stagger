@@ -71,6 +71,8 @@ func (self *Aggregator) report(ts int64) {
 	}
 }
 
+// These functions are for internal reporting
+
 // TODO: Not sure about these functions
 func (self *Aggregator) Count(ts int64, name string, value Count, Type string) {
 	self.Stats <- &Stats{

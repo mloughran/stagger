@@ -5,7 +5,6 @@ package main
 import (
 	"bytes"
 	"encoding/json"
-	"github.com/pusher/stagger/httpclient"
 	"io/ioutil"
 	"net/http"
 	"time"
@@ -25,8 +24,10 @@ func NewLibrato(source, email, token string) *Librato {
 		email:  email,
 		token:  token,
 		// Handle slow posts by combination of buffering channel & timing out
-		on_stats:   make(chan *TimestampedStats, 100),
-		httpclient: httpclient.NewTimeoutClient(2 * time.Second),
+		on_stats: make(chan *TimestampedStats, 100),
+		httpclient: &http.Client{
+			Timeout: 2 * time.Second,
+		},
 	}
 }
 
@@ -50,15 +51,21 @@ func (l *Librato) Send(stats *TimestampedStats) {
 func (l *Librato) post(stats *TimestampedStats) {
 	gagues := make([]map[string]interface{}, 0)
 	for key, value := range stats.Counters {
+		if key.HasTags() {
+			continue
+		}
 		gagues = append(gagues, map[string]interface{}{
-			"name":  key,
+			"name":  key.Name(),
 			"value": value,
 		})
 	}
 
 	for key, value := range stats.Dists {
+		if key.HasTags() {
+			continue
+		}
 		gagues = append(gagues, map[string]interface{}{
-			"name":        key,
+			"name":        key.Name(),
 			"count":       value.N,
 			"sum":         value.Sum_x,
 			"sum_squares": value.Sum_x2,
