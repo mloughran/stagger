@@ -5,6 +5,8 @@ import (
 	"github.com/pusher/stagger/pair"
 	"github.com/pusher/stagger/tcp"
 	"log"
+	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"os/signal"
 	"syscall"
@@ -39,16 +41,17 @@ func init() {
 func main() {
 	hostname, _ := os.Hostname()
 	var (
-		source        = flag.String("source", hostname, "source (for reporting)")
-		interval      = flag.Int("interval", 10, "stats interval (in seconds)")
-		timeout       = flag.Int("timeout", 1000, "receive timeout (in ms)")
-		tcp_addr      = flag.String("addr", "tcp://127.0.0.1:5866", "adress for the TCP mode")
-		reg_addr      = flag.String("registration", "tcp://127.0.0.1:5867", "address to which clients register")
-		log_output    = flag.Bool("log_output", true, "log aggregated data")
+		http_addr     = flag.String("http", "127.0.0.1:8990", "HTTP debugging address (e.g. ':8990')")
 		influxdb_url  = flag.String("influxdb_url", "", "influxdb URL")
+		interval      = flag.Int("interval", 10, "stats interval (in seconds)")
 		librato_email = flag.String("librato_email", "", "librato email")
 		librato_token = flag.String("librato_token", "", "librato token")
+		log_output    = flag.Bool("log_output", true, "log aggregated data")
+		reg_addr      = flag.String("registration", "tcp://127.0.0.1:5867", "address to which clients register")
 		showDebug     = flag.Bool("debug", false, "Print debug information")
+		source        = flag.String("source", hostname, "source (for reporting)")
+		tcp_addr      = flag.String("addr", "tcp://127.0.0.1:5866", "adress for the TCP mode")
+		timeout       = flag.Int("timeout", 1000, "receive timeout (in ms)")
 	)
 	tags := NewTagsValue(hostname)
 	flag.Var(tags, "tag", "adds key=value to stats (only influxdb)")
@@ -100,6 +103,16 @@ func main() {
 
 	if *log_output {
 		output.Add(StdoutOutputter)
+	}
+	if *http_addr != "" {
+		snapshot := NewSnapshot()
+		output.Add(snapshot)
+		http.Handle("/snapshot.json", snapshot)
+
+		go func() {
+			info.Printf("[main] HTTP server running on %v", *http_addr)
+			log.Println(http.ListenAndServe(*http_addr, nil))
+		}()
 	}
 
 	go output.Run(aggregator.output)
