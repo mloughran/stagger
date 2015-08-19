@@ -24,6 +24,7 @@ func NewInfluxDB(tags map[string]string, rawurl string) (client *InfluxDB, err e
 
 	// Client config
 	config := influxdb.NewConfig()
+	config.Timeout = 2 * time.Second
 	config.URL = *url
 
 	if url.User != nil {
