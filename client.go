@@ -14,6 +14,10 @@ type StatsRequest struct {
 	Timestamp int64
 }
 
+type RegisterProcess struct {
+	Tags map[string]string
+}
+
 type message struct {
 	Method string
 	Params map[string]interface{}
@@ -28,21 +32,25 @@ type Client struct {
 	complete chan<- (CompleteMessage)
 }
 
-func NewClient(id int64, c conn.Connection, meta string, statsc chan<- (*Stats), complete chan<- (CompleteMessage)) *Client {
-	name := fmt.Sprintf("[client:%v-%v]", id, meta)
-	sendc := make(chan message, 1)
-	return &Client{
+func NewClient(id int64, c conn.Connection, statsc chan<- (*Stats), complete chan<- (CompleteMessage)) *Client {
+	client := &Client{
 		id,
 		c,
-		name,
-		sendc,
+		"",
+		make(chan message, 1),
 		statsc,
 		complete,
 	}
+	client.setName(nil)
+	return client
 }
 
 func (c *Client) Id() int64 {
 	return c.id
+}
+
+func (c *Client) String() string {
+	return c.name
 }
 
 func (c *Client) Send(m string, p map[string]interface{}) {
@@ -65,7 +73,7 @@ func (c *Client) Run(clientDidClose chan<- conn.Client) {
 			ts = stats.Timestamp
 			c.statsc <- &stats
 		} else {
-			info.Printf("[%v] Error decoding msgpack data: %v", c.id, data)
+			info.Printf("%s Error decoding msgpack data: %v", c, data)
 		}
 		return
 	}
@@ -79,26 +87,45 @@ func (c *Client) Run(clientDidClose chan<- conn.Client) {
 			if b, err := marshal(message.Params); err == nil {
 				c.conn.Send(message.Method, b)
 			} else {
-				info.Printf("[%v] Error encoding as msgpack: %v", c.id, message.Params)
+				info.Printf("%s Error encoding as msgpack: %v", c, message.Params)
 			}
 		case m := <-c.conn.OnMethod():
 			switch m.Method {
+			case "register_process":
+				var reg RegisterProcess
+				if err = unmarshal(m.Params, &reg); err != nil {
+					info.Printf("%s Error registering: %v", c, err)
+				} else {
+					c.setName(reg.Tags)
+					info.Printf("%s Registered", c)
+				}
 			case "stats_partial":
-				if _, err = handleStats(m.Params); err != nil {
-					info.Printf("[%v] Error decoding stats_partial: %v", c.id, err)
+				if ts, err = handleStats(m.Params); err != nil {
+					info.Printf("%s Error decoding stats_partial: %v", c, err)
 				}
 			case "stats_complete":
 				if ts, err = handleStats(m.Params); err != nil {
-					info.Printf("[%v] Error decoding stats_complete: %v", c.id, err)
+					info.Printf("%s Error decoding stats_complete: %v", c, err)
 				} else {
-					c.complete <- CompleteMessage{c.Id(), ts}
+					c.complete <- CompleteMessage{c.id, ts}
 				}
 			default:
-				info.Printf("[%v] Received unknown command %v", c.id, m.Method)
+				info.Printf("%s Received unknown command %v", c, m.Method)
 			}
 		case <-c.conn.OnClose():
 			clientDidClose <- c
 			return
 		}
 	}
+}
+
+// Sets the client String() representation based on the list of tags
+func (c *Client) setName(tags map[string]string) {
+	tail := ""
+	if tags != nil && len(tags) > 0 {
+		for k, v := range tags {
+			tail += " " + k + "=" + v
+		}
+	}
+	c.name = fmt.Sprintf("[client:%d%s]", c.id, tail)
 }
