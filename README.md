@@ -27,13 +27,3 @@ apt-get install go libzmq3
 go get
 sudo go build
 ````
-# Making/importing certificates
-Use easy-rsa3 to make a client certificate
-
-## On linux
-https://code.google.com/p/chromium/wiki/LinuxCertManagement
-
-## On mac
-````
-security import ca.crt -k ~/Library/Keychains/login.keychain
-````
