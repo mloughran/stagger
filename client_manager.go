@@ -59,15 +59,15 @@ func (self *ClientManager) Run(ticker <-chan (time.Time), timeout int, ts_comple
 		select {
 		case conn := <-self.add_client_c:
 			self.index += 1
-			client := NewClient(self.index, conn, "", self.agg.Stats, self.onComplete)
+			client := NewClient(self.index, conn, self.agg.Stats, self.onComplete)
 			clients[self.index] = client
 			go client.Run(self.rem_client)
 
-			info.Printf("[cm] Added client id:%v (count: %v)", client.Id(), len(clients))
+			info.Printf("[cm] Added %s (count: %v)", client, len(clients))
 
 		case client := <-self.rem_client:
 			delete(clients, client.Id())
-			info.Printf("[cm] Removed client id:%v (count: %v)", client.Id(), len(clients))
+			info.Printf("[cm] Removed %s (count: %v)", client, len(clients))
 
 		case now = <-ticker:
 			ts = now.Unix()
