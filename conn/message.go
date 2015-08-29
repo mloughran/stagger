@@ -2,5 +2,5 @@ package conn
 
 type Message struct {
 	Method string
-	Params []byte
+	Params []byte // Contains a MsgPack object
 }

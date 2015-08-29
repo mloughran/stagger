@@ -4,6 +4,7 @@ import (
 	"flag"
 	"github.com/pusher/stagger/pair"
 	"github.com/pusher/stagger/tcp"
+	"github.com/pusher/stagger/tcp/v1"
 	"log"
 	"net/http"
 	_ "net/http/pprof"
@@ -46,7 +47,7 @@ func main() {
 		reg_addr      = flag.String("registration", "tcp://127.0.0.1:5867", "address to which clients register")
 		showDebug     = flag.Bool("debug", false, "Print debug information")
 		source        = flag.String("source", hostname, "source (for reporting)")
-		tcp_addr      = flag.String("addr", "tcp://127.0.0.1:5866", "adress for the TCP mode")
+		tcp_addr      = flag.String("addr", "tcp://127.0.0.1:5866", "adress for the TCP v1 mode")
 		timeout       = flag.Int("timeout", 1000, "receive timeout (in ms)")
 	)
 	tags := NewTagsValue(hostname)
@@ -68,7 +69,7 @@ func main() {
 	client_manager := NewClientManager(aggregator)
 	go client_manager.Run(ticker, *timeout, ts_complete, ts_new)
 
-	tcp_server, err := tcp.NewServer(*tcp_addr, client_manager)
+	tcp_server, err := tcp.NewServer(*tcp_addr, client_manager, v1.Encoding{})
 	if err != nil {
 		log.Println("invalid address: ", err)
 		return
