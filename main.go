@@ -5,6 +5,7 @@ import (
 	"github.com/pusher/stagger/pair"
 	"github.com/pusher/stagger/tcp"
 	"github.com/pusher/stagger/tcp/v1"
+	"github.com/pusher/stagger/tcp/v2"
 	"log"
 	"net/http"
 	_ "net/http/pprof"
@@ -48,6 +49,7 @@ func main() {
 		showDebug     = flag.Bool("debug", false, "Print debug information")
 		source        = flag.String("source", hostname, "source (for reporting)")
 		tcp_addr      = flag.String("addr", "tcp://127.0.0.1:5866", "adress for the TCP v1 mode")
+		tcp_addr2     = flag.String("addr2", "tcp://127.0.0.1:5865", "adress for the TCP v2 mode")
 		timeout       = flag.Int("timeout", 1000, "receive timeout (in ms)")
 	)
 	tags := NewTagsValue(hostname)
@@ -75,6 +77,13 @@ func main() {
 		return
 	}
 	go tcp_server.Run()
+
+	tcp_server2, err := tcp.NewServer(*tcp_addr2, client_manager, v2.Encoding{})
+	if err != nil {
+		log.Println("invalid address: ", err)
+		return
+	}
+	go tcp_server2.Run()
 
 	pair_server := pair.NewServer(*reg_addr, client_manager)
 	go pair_server.Run()
@@ -120,6 +129,7 @@ func main() {
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 	<-c
+	tcp_server2.Shutdown()
 	tcp_server.Shutdown()
 	pair_server.Shutdown()
 	client_manager.Shutdown()
