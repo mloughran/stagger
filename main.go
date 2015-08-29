@@ -9,6 +9,7 @@ import (
 	_ "net/http/pprof"
 	"os"
 	"os/signal"
+	"runtime"
 	"syscall"
 )
 
@@ -27,16 +28,11 @@ func (d debugger) Print(args ...interface{}) {
 }
 
 var (
-	debug debugger = false
-	info  debugger = true
-	build string
+	debug     debugger = false
+	info      debugger = true
+	buildSha  string   = "<unknown>"
+	buildDate string   = "<unknown>"
 )
-
-func init() {
-	if len(build) == 0 {
-		build = "Build with `go build -ldflags \"-X main.build <info-string>\"` to include build information in binary"
-	}
-}
 
 func main() {
 	hostname, _ := os.Hostname()
@@ -117,7 +113,7 @@ func main() {
 
 	go output.Run(aggregator.output)
 
-	info.Printf("[main] Stagger running. %s", build)
+	info.Printf("[main] Stagger running. sha=%s date=%s go=%s", buildSha, buildDate, runtime.Version())
 
 	// Handle termination
 	c := make(chan os.Signal, 1)
