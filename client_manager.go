@@ -80,7 +80,7 @@ func (self *ClientManager) Run(ticker <-chan (time.Time), timeout int, ts_comple
 				outstanding_stats[ts] = len(clients)
 
 				// Record metric for number registered clients
-				self.agg.Count(ts, "stagger.clients", Count(len(clients)), "count")
+				self.agg.Count(ts, "stagger.clients", Count(len(clients)))
 
 				for _, client := range clients {
 					client.RequestStats(ts)
@@ -98,7 +98,7 @@ func (self *ClientManager) Run(ticker <-chan (time.Time), timeout int, ts_comple
 		case ts = <-on_timeout:
 			if remaining, ok := outstanding_stats[ts]; ok {
 				info.Printf("[cm] (ts:%v) Survey timed out, %v clients yet to report", ts, remaining)
-				self.agg.Count(ts, "stagger.timeouts", Count(remaining), "count")
+				self.agg.Count(ts, "stagger.timeouts", Count(remaining))
 				delete(outstanding_stats, ts)
 				delete(nanoTs, ts)
 				ts_complete <- ts // TODO: Notify that it wasn't clean
@@ -112,7 +112,7 @@ func (self *ClientManager) Run(ticker <-chan (time.Time), timeout int, ts_comple
 
 				// Record the time for this client to complete survey in ms
 				latency = float64(time.Now().UnixNano()-tsn) / 1000000
-				self.agg.Value(ts, "stagger.survey_latency", latency, "ms")
+				self.agg.Value(ts, "stagger.survey_latency", latency)
 
 				if outstanding_stats[ts] == 0 {
 					delete(outstanding_stats, ts)

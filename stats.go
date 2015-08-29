@@ -43,13 +43,11 @@ func (self StatKey) String() string {
 
 type DistMap map[StatKey]*Dist
 type CounterMap map[StatKey]float64
-type TypeMap map[StatKey]*string
 
 type TimestampedStats struct {
 	Timestamp int64
 	Dists     DistMap
 	Counters  CounterMap
-	Types     TypeMap
 	Empty     bool
 }
 
@@ -58,7 +56,6 @@ func NewTimestampedStats(ts int64) *TimestampedStats {
 		ts,
 		DistMap{},
 		CounterMap{},
-		TypeMap{},
 		true,
 	}
 }
@@ -66,9 +63,6 @@ func NewTimestampedStats(ts int64) *TimestampedStats {
 func (self TimestampedStats) AddCount(s StatCount) {
 	self.Empty = false
 	self.Counters[s.Key()] += s.Count
-	if s.Type != nil {
-		self.Types[s.Key()] = s.Type
-	}
 }
 
 func (self TimestampedStats) AddValue(s StatValue) {
@@ -77,9 +71,6 @@ func (self TimestampedStats) AddValue(s StatValue) {
 		d.AddEntry(s.Value)
 	} else {
 		self.Dists[s.Key()] = NewDistFromValue(s.Value)
-	}
-	if s.Type != nil {
-		self.Types[s.Key()] = s.Type
 	}
 }
 
@@ -90,9 +81,6 @@ func (self TimestampedStats) AddDist(s StatDist) {
 		d.Add(dist)
 	} else {
 		self.Dists[s.Key()] = dist
-	}
-	if s.Type != nil {
-		self.Types[s.Key()] = s.Type
 	}
 }
 
@@ -107,7 +95,6 @@ type Stats struct {
 type StatValue struct {
 	Name  string
 	Value float64
-	Type  *string
 }
 
 func (self StatValue) Key() StatKey {
@@ -117,7 +104,6 @@ func (self StatValue) Key() StatKey {
 type StatCount struct {
 	Name  string
 	Count float64
-	Type  *string
 }
 
 func (self StatCount) Key() StatKey {
@@ -127,7 +113,6 @@ func (self StatCount) Key() StatKey {
 type StatDist struct {
 	Name string
 	Dist [5]float64
-	Type *string
 }
 
 func (self StatDist) Key() StatKey {
