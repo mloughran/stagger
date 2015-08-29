@@ -6,6 +6,7 @@ type (
 		OnMethod() <-chan Message
 		OnClose() <-chan bool
 		Shutdown()
+		String() string
 	}
 
 	Client interface {

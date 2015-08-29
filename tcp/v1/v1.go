@@ -65,3 +65,7 @@ func (e Encoding) WriteMessage(w io.Writer, msg conn.Message) (err error) {
 
 	return
 }
+
+func (e Encoding) String() string {
+	return "V1"
+}

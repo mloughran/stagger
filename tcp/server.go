@@ -45,7 +45,7 @@ func (self *Server) Run() {
 			if err != nil {
 				break
 			}
-			info.Printf("[tcp-server] new conn")
+			debug.Printf("[tcp-server] new conn, encoding=%s", self.encoding)
 			conns <- NewConn(conn, self.encoding)
 		}
 		self.didShutdown <- true

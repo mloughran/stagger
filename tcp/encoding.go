@@ -8,4 +8,5 @@ import (
 type Encoding interface {
 	ReadMessage(io.Reader) (conn.Message, error)
 	WriteMessage(io.Writer, conn.Message) error
+	String() string
 }

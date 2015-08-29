@@ -1,6 +1,7 @@
 package tcp
 
 import (
+	"fmt"
 	"github.com/pusher/stagger/conn"
 	"io"
 	"net"
@@ -23,6 +24,10 @@ type Conn struct {
 // NewConn creates a Connection. You must select on OnMethod and OnClose
 func NewConn(c net.Conn, e Encoding) *Conn {
 	return &Conn{c, e, make(chan conn.Message), make(chan bool), make(chan conn.Message, 1)}
+}
+
+func (c *Conn) String() string {
+	return fmt.Sprintf("mode=tcp encoding=%s", c.encoding)
 }
 
 // Send sends a message to the Connection
