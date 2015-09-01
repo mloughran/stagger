@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"github.com/pusher/stagger/conn"
+	"strings"
 )
 
 type StatsEnvelope struct {
@@ -121,11 +122,14 @@ func (c *Client) Run(clientDidClose chan<- conn.Client) {
 
 // Sets the client String() representation based on the list of tags
 func (c *Client) setName(tags map[string]string) {
-	tail := ""
+	var tail []string
 	if tags != nil && len(tags) > 0 {
+		tail = make([]string, len(tags))
+		i := 0
 		for k, v := range tags {
-			tail += " " + k + "=" + v
+			tail[i] = k + "=" + v
+			i++
 		}
 	}
-	c.name = fmt.Sprintf("[client:%d%s]", c.id, tail)
+	c.name = fmt.Sprintf("[client id=%d %s tags={%s}]", c.id, c.conn, strings.Join(tail, " "))
 }

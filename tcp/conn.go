@@ -8,9 +8,6 @@ import (
 	"time"
 )
 
-const HEAD = "%d,%d."
-const SEP = ":"
-
 type Message struct {
 	conn.Message
 	Err error
@@ -18,19 +15,24 @@ type Message struct {
 
 type Conn struct {
 	c           net.Conn
+	encoding    Encoding
 	onMethod    chan conn.Message
 	onClose     chan bool
-	sendMessage chan Message
+	sendMessage chan conn.Message
 }
 
 // NewConn creates a Connection. You must select on OnMethod and OnClose
-func NewConn(c net.Conn) *Conn {
-	return &Conn{c, make(chan conn.Message), make(chan bool), make(chan Message, 1)}
+func NewConn(c net.Conn, e Encoding) *Conn {
+	return &Conn{c, e, make(chan conn.Message), make(chan bool), make(chan conn.Message, 1)}
+}
+
+func (c *Conn) String() string {
+	return fmt.Sprintf("mode=tcp encoding=%s", c.encoding)
 }
 
 // Send sends a message to the Connection
 func (c *Conn) Send(method string, params []byte) {
-	c.sendMessage <- Message{conn.Message{method, params}, nil}
+	c.sendMessage <- conn.Message{method, params}
 }
 
 func (c *Conn) OnMethod() <-chan conn.Message {
@@ -55,76 +57,31 @@ func (c *Conn) Run() {
 
 	// Goroutine handles reading from tcp
 	go func() {
-		var (
-			msg      Message
-			headLen  uint64
-			paramLen uint64
-		)
-		sep := make([]byte, 1)
 		for {
-			msg = Message{}
-
-			if _, msg.Err = fmt.Fscanf(c.c, HEAD, &headLen, &paramLen); msg.Err != nil {
-				break
-			}
-
-			method := make([]byte, headLen)
-			if _, msg.Err = c.c.Read(method); msg.Err != nil {
-				break
-			}
-			msg.Method = string(method)
-
-			if _, msg.Err = c.c.Read(sep); msg.Err != nil {
-				break
-			}
-			if string(sep) != SEP {
-				msg.Err = fmt.Errorf("Invalid separator, should be %s but was %s", SEP, string(sep))
-				break
-			}
-
-			msg.Params = make([]byte, paramLen)
-			if _, msg.Err = c.c.Read(msg.Params); msg.Err != nil {
-				break
-			}
-
+			msg := Message{}
+			msg.Message, msg.Err = c.encoding.ReadMessage(c.c)
 			recvMessage <- msg
-		}
-		if msg.Err != nil {
-			recvMessage <- msg
+			if msg.Err != nil {
+				break
+			}
 		}
 	}()
 
 	// send method for use by this goroutine
-	send := func(method string, params []byte) (err error) {
-		debug.Printf("Sending %s %s", method, params)
-		if _, err = fmt.Fprintf(c.c, HEAD, len(method), len(params)); err != nil {
-			return
-		}
-
-		if _, err = c.c.Write([]byte(method)); err != nil {
-			return
-		}
-
-		if _, err = c.c.Write([]byte(SEP)); err != nil {
-			return
-		}
-
-		if _, err = c.c.Write(params); err != nil {
-			return
-		}
-
+	send := func(msg conn.Message) (err error) {
+		debug.Printf("Sending %v", msg)
+		err = c.encoding.WriteMessage(c.c, msg)
 		return
 	}
 
-	var msg Message
 	for {
 		select {
-		case msg = <-c.sendMessage:
-			if err := send(msg.Method, msg.Params); err != nil {
+		case msg := <-c.sendMessage:
+			if err := send(msg); err != nil {
 				info.Printf("[tcp-conn] Closing %v after err: %v", c.c.RemoteAddr(), err)
 				return
 			}
-		case msg = <-recvMessage:
+		case msg := <-recvMessage:
 			if msg.Err != nil {
 				if msg.Err != io.EOF {
 					info.Printf("[tcp-conn] Closing(2) %v after err: %v", c.c.RemoteAddr(), msg.Err)
@@ -137,7 +94,7 @@ func (c *Conn) Run() {
 			switch msg.Method {
 			case "pair:ping":
 				debug.Print("[tcp-conn] Received ping, sending pong")
-				send("pair:pong", []byte{})
+				send(conn.Message{"pair:pong", []byte{}})
 			case "pair:pong":
 				debug.Print("[tcp-conn] Received pong")
 				// Do nothing
@@ -146,7 +103,7 @@ func (c *Conn) Run() {
 				c.onMethod <- msg.Message
 			}
 		case <-time.After(30 * time.Second):
-			if err := send("pair:ping", []byte{}); err != nil {
+			if err := send(conn.Message{"pair:ping", []byte{}}); err != nil {
 				info.Printf("ping error", err)
 			}
 		}

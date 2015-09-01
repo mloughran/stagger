@@ -4,11 +4,14 @@ import (
 	"flag"
 	"github.com/pusher/stagger/pair"
 	"github.com/pusher/stagger/tcp"
+	"github.com/pusher/stagger/tcp/v1"
+	"github.com/pusher/stagger/tcp/v2"
 	"log"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
 	"os/signal"
+	"runtime"
 	"syscall"
 )
 
@@ -27,16 +30,11 @@ func (d debugger) Print(args ...interface{}) {
 }
 
 var (
-	debug debugger = false
-	info  debugger = true
-	build string
+	debug     debugger = false
+	info      debugger = true
+	buildSha  string   = "<unknown>"
+	buildDate string   = "<unknown>"
 )
-
-func init() {
-	if len(build) == 0 {
-		build = "Build with `go build -ldflags \"-X main.build <info-string>\"` to include build information in binary"
-	}
-}
 
 func main() {
 	hostname, _ := os.Hostname()
@@ -50,7 +48,8 @@ func main() {
 		reg_addr      = flag.String("registration", "tcp://127.0.0.1:5867", "address to which clients register")
 		showDebug     = flag.Bool("debug", false, "Print debug information")
 		source        = flag.String("source", hostname, "source (for reporting)")
-		tcp_addr      = flag.String("addr", "tcp://127.0.0.1:5866", "adress for the TCP mode")
+		tcp_addr      = flag.String("addr", "tcp://127.0.0.1:5866", "adress for the TCP v1 mode")
+		tcp_addr2     = flag.String("addr2", "tcp://127.0.0.1:5865", "adress for the TCP v2 mode")
 		timeout       = flag.Int("timeout", 1000, "receive timeout (in ms)")
 	)
 	tags := NewTagsValue(hostname)
@@ -72,12 +71,19 @@ func main() {
 	client_manager := NewClientManager(aggregator)
 	go client_manager.Run(ticker, *timeout, ts_complete, ts_new)
 
-	tcp_server, err := tcp.NewServer(*tcp_addr, client_manager)
+	tcp_server, err := tcp.NewServer(*tcp_addr, client_manager, v1.Encoding{})
 	if err != nil {
 		log.Println("invalid address: ", err)
 		return
 	}
 	go tcp_server.Run()
+
+	tcp_server2, err := tcp.NewServer(*tcp_addr2, client_manager, v2.Encoding{})
+	if err != nil {
+		log.Println("invalid address: ", err)
+		return
+	}
+	go tcp_server2.Run()
 
 	pair_server := pair.NewServer(*reg_addr, client_manager)
 	go pair_server.Run()
@@ -117,12 +123,13 @@ func main() {
 
 	go output.Run(aggregator.output)
 
-	info.Printf("[main] Stagger running. %s", build)
+	info.Printf("[main] Stagger running. sha=%s date=%s go=%s", buildSha, buildDate, runtime.Version())
 
 	// Handle termination
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 	<-c
+	tcp_server2.Shutdown()
 	tcp_server.Shutdown()
 	pair_server.Shutdown()
 	client_manager.Shutdown()

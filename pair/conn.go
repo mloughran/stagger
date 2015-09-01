@@ -18,6 +18,10 @@ func NewConn() *Conn {
 	return &Conn{make(chan conn.Message), make(chan bool), make(chan conn.Message, 1), "", false}
 }
 
+func (c *Conn) String() string {
+	return "mode=zeromq"
+}
+
 // ShouldConnect notifies the Connection that it should Connect when Run called
 func (c *Conn) ShouldConnect(addr string) {
 	c.addr = addr
