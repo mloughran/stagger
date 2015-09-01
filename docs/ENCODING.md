@@ -24,6 +24,8 @@ the server and some both ways.
 The associated params structures should be described in the PROTOCOL.md
 documentation.
 
+[Associated code](../tcp/v2/const.go)
+
 * 0x28: `pair:ping` (both ways)
 * 0x29: `pair:pong` (both ways)
 * 0x30: `report_all` (server -> client)

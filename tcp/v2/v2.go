@@ -12,21 +12,6 @@ type Encoding struct{}
 
 type method byte
 
-const (
-	PAIR_PING        = method(0x28) // Both
-	PAIR_PONG        = method(0x29) // Both
-	REPORT_ALL       = method(0x30) // Server -> Client
-	REGISTER_PROCESS = method(0x41) // Client -> Server
-	STATS_PARTIAL    = method(0x42) // Client -> Server
-	STATS_COMPLETE   = method(0x43) // Client -> Server
-)
-
-const (
-	MAGIC_BYTE1   = 0x83 // 'S'
-	MAGIC_BYTE2   = 0x84 // 'T'
-	MAGIC_VERSION = 0x00
-)
-
 var (
 	MAGIC_HEADER = []byte{MAGIC_BYTE1, MAGIC_BYTE2, MAGIC_VERSION}
 	method2str   map[method]string
