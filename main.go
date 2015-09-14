@@ -41,7 +41,7 @@ func main() {
 	var (
 		http_addr     = flag.String("http", "127.0.0.1:8990", "HTTP debugging address (e.g. ':8990')")
 		influxdb_url  = flag.String("influxdb_url", "", "influxdb URL")
-		interval      = flag.Int("interval", 10, "stats interval (in seconds)")
+		interval      = flag.Int("interval", 5, "stats interval (in seconds)")
 		librato_email = flag.String("librato_email", "", "librato email")
 		librato_token = flag.String("librato_token", "", "librato token")
 		log_output    = flag.Bool("log_output", true, "log aggregated data")
