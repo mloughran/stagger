@@ -29,7 +29,7 @@ func NewClient(id int64, c conn.Connection, statsc chan<- (*Stats), complete cha
 		id,
 		c,
 		"",
-		make(chan message, 1),
+		make(chan message, 2),
 		statsc,
 		complete,
 	}

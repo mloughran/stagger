@@ -77,14 +77,14 @@ func main() {
 	client_manager := NewClientManager(aggregator)
 	go client_manager.Run(ticker, *timeout, ts_complete, ts_new)
 
-	tcp_server, err := tcp.NewServer(*tcp_addr, client_manager, v1.Encoding{})
+	tcp_server, err := tcp.NewServer(*tcp_addr, client_manager, v1.Encoding{}, *interval)
 	if err != nil {
 		log.Println("invalid address: ", err)
 		return
 	}
 	go tcp_server.Run()
 
-	tcp_server2, err := tcp.NewServer(*tcp_addr2, client_manager, v2.Encoding{})
+	tcp_server2, err := tcp.NewServer(*tcp_addr2, client_manager, v2.Encoding{}, *interval)
 	if err != nil {
 		log.Println("invalid address: ", err)
 		return

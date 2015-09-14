@@ -19,11 +19,12 @@ type Conn struct {
 	onMethod    chan conn.Message
 	onClose     chan bool
 	sendMessage chan conn.Message
+	interval    int
 }
 
 // NewConn creates a Connection. You must select on OnMethod and OnClose
-func NewConn(c net.Conn, e Encoding) *Conn {
-	return &Conn{c, e, make(chan conn.Message), make(chan bool), make(chan conn.Message, 1)}
+func NewConn(c net.Conn, e Encoding, interval int) *Conn {
+	return &Conn{c, e, make(chan conn.Message), make(chan bool), make(chan conn.Message, 1), interval}
 }
 
 func (c *Conn) String() string {
@@ -88,8 +89,10 @@ func (c *Conn) Run() {
 				}
 				return
 			}
-			// The next message should arrive in max 61 seconds
-			c.c.SetDeadline(time.Now().Add(61 * time.Second))
+			// The next message should arrive in max 2 the update interval
+			c.c.SetDeadline(
+				time.Now().Add(2 * time.Duration(c.interval) * time.Second),
+			)
 
 			switch msg.Method {
 			case "pair:ping":
@@ -101,10 +104,6 @@ func (c *Conn) Run() {
 			default:
 				debug.Printf("[tcp-conn] Received message %v", msg.Method)
 				c.onMethod <- msg.Message
-			}
-		case <-time.After(30 * time.Second):
-			if err := send(conn.Message{"pair:ping", []byte{}}); err != nil {
-				info.Printf("ping error", err)
 			}
 		}
 	}

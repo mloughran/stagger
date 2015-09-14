@@ -13,9 +13,10 @@ type Server struct {
 	sigShutdown chan bool
 	didShutdown chan bool
 	encoding    Encoding
+	interval    int
 }
 
-func NewServer(tcp_addr string, d conn.ClientManager, e Encoding) (*Server, error) {
+func NewServer(tcp_addr string, d conn.ClientManager, e Encoding, interval int) (*Server, error) {
 	url_, err := url.Parse(tcp_addr)
 	if err != nil {
 		return nil, err
@@ -23,7 +24,7 @@ func NewServer(tcp_addr string, d conn.ClientManager, e Encoding) (*Server, erro
 	net := url_.Scheme
 	laddr := url_.Host
 
-	return &Server{net, laddr, d, make(chan bool), make(chan bool), e}, nil
+	return &Server{net, laddr, d, make(chan bool), make(chan bool), e, interval}, nil
 }
 
 func (self *Server) Run() {
@@ -46,7 +47,7 @@ func (self *Server) Run() {
 				break
 			}
 			debug.Printf("[tcp-server] new conn, encoding=%s", self.encoding)
-			conns <- NewConn(conn, self.encoding)
+			conns <- NewConn(conn, self.encoding, self.interval)
 		}
 		self.didShutdown <- true
 	}()
