@@ -6,15 +6,6 @@ import (
 	"strings"
 )
 
-type StatsEnvelope struct {
-	Method    string
-	Timestamp int64
-}
-
-type StatsRequest struct {
-	Timestamp int64
-}
-
 type RegisterProcess struct {
 	Tags map[string]string
 }
