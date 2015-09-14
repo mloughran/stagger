@@ -46,7 +46,7 @@ func (self *Server) Run() {
 			if err != nil {
 				break
 			}
-			debug.Printf("[tcp-server] new conn, encoding=%s", self.encoding)
+			debug.Printf("[tcp-server encoding=%s] new conn", self.encoding)
 			conns <- NewConn(conn, self.encoding, self.interval)
 		}
 		self.didShutdown <- true
@@ -58,7 +58,7 @@ func (self *Server) Run() {
 			go c.Run()
 			self.NewClient(c)
 		case <-self.sigShutdown:
-			info.Printf("[tcp-server] Shutting down listener")
+			info.Printf("[tcp-server encoding=%s] Shutting down listener", self.encoding)
 			return
 		}
 	}
@@ -66,8 +66,8 @@ func (self *Server) Run() {
 
 // Shutdown is a blocking call which
 func (self *Server) Shutdown() {
-	debug.Print("[tcp-server] willClose")
+	debug.Print("[tcp-server encoding=%s] willClose", self.encoding)
 	self.sigShutdown <- true
 	<-self.didShutdown
-	debug.Print("[tcp-server] didClose")
+	debug.Print("[tcp-server encoding=%s] didClose", self.encoding)
 }
