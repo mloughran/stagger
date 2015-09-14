@@ -60,6 +60,12 @@ func main() {
 		debug = true
 	}
 
+	// Make sure clients have time to report
+	if *interval <= 2 {
+		log.Println("Bad interval %d, changing to 2", interval)
+		*interval = 2
+	}
+
 	ts_complete := make(chan int64)
 	ts_new := make(chan int64)
 

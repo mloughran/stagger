@@ -56,7 +56,7 @@ func (self *Aggregator) feed(stats *Stats) {
 			self.passed.AddDist(s)
 		}
 	} else {
-		info.Printf("[aggregator] (ts:%v) Stats received for unexpected timestamp, discarding", stats.Timestamp)
+		info.Printf("[aggregator] (ts:%v) Stats received for unexpected timestamp %v, discarding", self.passedTs, stats.Timestamp)
 	}
 }
 

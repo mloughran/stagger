@@ -51,9 +51,17 @@ func (self *ClientManager) Run(ticker <-chan (time.Time), timeout int, ts_comple
 	on_timeout := make(chan int64)
 
 	// Avoid allocations
-	var ts, tsn int64
-	var now time.Time
-	var latency float64
+	var (
+		ts, tsn int64
+		now     time.Time
+		latency float64
+	)
+
+	closeTimestamp := func(ts int64) {
+		delete(outstanding_stats, ts)
+		delete(nanoTs, ts)
+		ts_complete <- ts // TODO: Notify that it wasn't clean
+	}
 
 	for {
 		select {
@@ -73,6 +81,9 @@ func (self *ClientManager) Run(ticker <-chan (time.Time), timeout int, ts_comple
 			ts = now.Unix()
 			nanoTs[ts] = now.UnixNano()
 			ts_new <- ts
+			if len(outstanding_stats) > 1 {
+				info.Printf("Too many outstanding stats: %v", outstanding_stats)
+			}
 			if len(clients) > 0 {
 				info.Printf("[cm] (ts:%v) Surveying %v clients", ts, len(clients))
 
@@ -99,25 +110,25 @@ func (self *ClientManager) Run(ticker <-chan (time.Time), timeout int, ts_comple
 			if remaining, ok := outstanding_stats[ts]; ok {
 				info.Printf("[cm] (ts:%v) Survey timed out, %v clients yet to report", ts, remaining)
 				self.agg.Count(ts, "stagger.timeouts", Count(remaining))
-				delete(outstanding_stats, ts)
-				delete(nanoTs, ts)
-				ts_complete <- ts // TODO: Notify that it wasn't clean
+				closeTimestamp(ts)
 			}
 
 		case c := <-self.onComplete:
 			ts = c.Timestamp
-			tsn = nanoTs[ts]
-			if _, ok := outstanding_stats[ts]; ok {
-				outstanding_stats[ts] -= 1
+			if left, ok := outstanding_stats[ts]; ok {
+				if left <= 0 {
+					info.Printf("[cm] Bad outstanding stats: %d", left)
+				}
 
+				tsn = nanoTs[ts]
+				outstanding_stats[ts] -= 1
 				// Record the time for this client to complete survey in ms
 				latency = float64(time.Now().UnixNano()-tsn) / 1000000
+
 				self.agg.Value(ts, "stagger.survey_latency", latency)
 
 				if outstanding_stats[ts] == 0 {
-					delete(outstanding_stats, ts)
-					delete(nanoTs, ts)
-					ts_complete <- ts
+					closeTimestamp(ts)
 				}
 			}
 		case <-self.sigShutdown:
