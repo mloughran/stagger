@@ -2,7 +2,6 @@ package main
 
 import (
 	"flag"
-	"github.com/pusher/stagger/pair"
 	"github.com/pusher/stagger/tcp"
 	"github.com/pusher/stagger/tcp/v1"
 	"github.com/pusher/stagger/tcp/v2"
@@ -45,7 +44,6 @@ func main() {
 		librato_email = flag.String("librato_email", "", "librato email")
 		librato_token = flag.String("librato_token", "", "librato token")
 		log_output    = flag.Bool("log_output", true, "log aggregated data")
-		reg_addr      = flag.String("registration", "tcp://127.0.0.1:5867", "address to which clients register")
 		showDebug     = flag.Bool("debug", false, "Print debug information")
 		source        = flag.String("source", hostname, "source (for reporting)")
 		tcp_addr      = flag.String("addr", "tcp://127.0.0.1:5866", "adress for the TCP v1 mode")
@@ -84,9 +82,6 @@ func main() {
 		return
 	}
 	go tcp_server2.Run()
-
-	pair_server := pair.NewServer(*reg_addr, client_manager)
-	go pair_server.Run()
 
 	output := NewOutput()
 
@@ -131,7 +126,6 @@ func main() {
 	<-c
 	tcp_server2.Shutdown()
 	tcp_server.Shutdown()
-	pair_server.Shutdown()
 	client_manager.Shutdown()
 	info.Print("[main] Exiting cleanly")
 }

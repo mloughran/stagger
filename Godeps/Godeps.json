@@ -1,6 +1,6 @@
 {
 	"ImportPath": "github.com/pusher/stagger",
-	"GoVersion": "go1.4.2",
+	"GoVersion": "go1.5.1",
 	"Deps": [
 		{
 			"ImportPath": "github.com/armon/go-metrics",
@@ -56,10 +56,6 @@
 			"ImportPath": "github.com/influxdb/influxdb/tsdb",
 			"Comment": "v0.9.1-rc1-417-g9ece632",
 			"Rev": "9ece632791a4fb62be81d826a77b9937fe67c3ce"
-		},
-		{
-			"ImportPath": "github.com/pebbe/zmq3",
-			"Rev": "e4f41864a2b1412d1ded420372136096769ee11f"
 		},
 		{
 			"ImportPath": "github.com/ugorji/go/codec",
