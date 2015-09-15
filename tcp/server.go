@@ -13,9 +13,10 @@ type Server struct {
 	sigShutdown chan bool
 	didShutdown chan bool
 	encoding    Encoding
+	interval    int
 }
 
-func NewServer(tcp_addr string, d conn.ClientManager, e Encoding) (*Server, error) {
+func NewServer(tcp_addr string, d conn.ClientManager, e Encoding, interval int) (*Server, error) {
 	url_, err := url.Parse(tcp_addr)
 	if err != nil {
 		return nil, err
@@ -23,7 +24,7 @@ func NewServer(tcp_addr string, d conn.ClientManager, e Encoding) (*Server, erro
 	net := url_.Scheme
 	laddr := url_.Host
 
-	return &Server{net, laddr, d, make(chan bool), make(chan bool), e}, nil
+	return &Server{net, laddr, d, make(chan bool), make(chan bool), e, interval}, nil
 }
 
 func (self *Server) Run() {
@@ -45,8 +46,8 @@ func (self *Server) Run() {
 			if err != nil {
 				break
 			}
-			debug.Printf("[tcp-server] new conn, encoding=%s", self.encoding)
-			conns <- NewConn(conn, self.encoding)
+			debug.Printf("[tcp-server encoding=%s] new conn", self.encoding)
+			conns <- NewConn(conn, self.encoding, self.interval)
 		}
 		self.didShutdown <- true
 	}()
@@ -57,7 +58,7 @@ func (self *Server) Run() {
 			go c.Run()
 			self.NewClient(c)
 		case <-self.sigShutdown:
-			info.Printf("[tcp-server] Shutting down listener")
+			info.Printf("[tcp-server encoding=%s] Shutting down listener", self.encoding)
 			return
 		}
 	}
@@ -65,8 +66,8 @@ func (self *Server) Run() {
 
 // Shutdown is a blocking call which
 func (self *Server) Shutdown() {
-	debug.Print("[tcp-server] willClose")
+	debug.Print("[tcp-server encoding=%s] willClose", self.encoding)
 	self.sigShutdown <- true
 	<-self.didShutdown
-	debug.Print("[tcp-server] didClose")
+	debug.Print("[tcp-server encoding=%s] didClose", self.encoding)
 }

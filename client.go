@@ -6,15 +6,6 @@ import (
 	"strings"
 )
 
-type StatsEnvelope struct {
-	Method    string
-	Timestamp int64
-}
-
-type StatsRequest struct {
-	Timestamp int64
-}
-
 type RegisterProcess struct {
 	Tags map[string]string
 }
@@ -38,7 +29,7 @@ func NewClient(id int64, c conn.Connection, statsc chan<- (*Stats), complete cha
 		id,
 		c,
 		"",
-		make(chan message, 1),
+		make(chan message, 2),
 		statsc,
 		complete,
 	}
