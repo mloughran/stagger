@@ -1,10 +1,15 @@
-default: build
+default: stagger
 
 SHELL := /bin/bash
 PATH := .:$(PATH)
+GOPATH := $(PWD)/Godeps/_workspace
+export GOPATH
 
-build:
-		go fmt
-		go get github.com/jteeuwen/go-bindata/...
-		go-bindata sparkline
-		go build -ldflags "-X main.build \"SHA: $(shell git rev-parse HEAD) (Built $(shell date) with $(shell go version))\""
+stagger: *.go */*.go
+	go fmt ./...
+	go build -ldflags '-X main.buildSha $(shell git rev-parse HEAD) -X main.buildDate $(shell date -u +%Y-%m-%dT%H:%M:%SZ)'
+
+clean:
+	rm -f stagger
+
+.PHONY: clean default
