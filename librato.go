@@ -104,6 +104,7 @@ func (l *Librato) post(stats *TimestampedStats) {
 		info.Printf("[librato] HTTP error: %v", err)
 		return
 	}
+	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
 		info.Printf("[librato] Invalid response: %v", resp.StatusCode)
@@ -111,7 +112,4 @@ func (l *Librato) post(stats *TimestampedStats) {
 		info.Printf("[librato] HTTP body: %v", string(body))
 		return
 	}
-
-	// Close the body as requested by the docs
-	resp.Body.Close()
 }
