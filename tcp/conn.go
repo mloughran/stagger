@@ -59,6 +59,11 @@ func (c *Conn) Run() {
 	// Goroutine handles reading from tcp
 	go func() {
 		for {
+			// The next message should arrive in max 2 the update interval
+			c.c.SetReadDeadline(
+				time.Now().Add(2 * time.Duration(c.interval) * time.Second),
+			)
+
 			msg := Message{}
 			msg.Message, msg.Err = c.encoding.ReadMessage(c.c)
 			recvMessage <- msg
@@ -78,6 +83,10 @@ func (c *Conn) Run() {
 	for {
 		select {
 		case msg := <-c.sendMessage:
+			// Writes should be fast
+			c.c.SetWriteDeadline(
+				time.Now().Add(1 * time.Second),
+			)
 			if err := send(msg); err != nil {
 				info.Printf("[tcp-conn] Closing %v after err: %v", c.c.RemoteAddr(), err)
 				return
@@ -89,10 +98,6 @@ func (c *Conn) Run() {
 				}
 				return
 			}
-			// The next message should arrive in max 2 the update interval
-			c.c.SetDeadline(
-				time.Now().Add(2 * time.Duration(c.interval) * time.Second),
-			)
 
 			switch msg.Method {
 			case "pair:ping":
