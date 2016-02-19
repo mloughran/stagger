@@ -9,9 +9,7 @@ import (
 	"net/http"
 	_ "net/http/pprof"
 	"os"
-	"os/signal"
 	"runtime"
-	"syscall"
 )
 
 type debugger bool
@@ -126,12 +124,6 @@ func main() {
 
 	info.Printf("[main] Stagger running. sha=%s date=%s go=%s", buildSha, buildDate, runtime.Version())
 
-	// Handle termination
-	c := make(chan os.Signal, 1)
-	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
-	<-c
-	tcp_server2.Shutdown()
-	tcp_server.Shutdown()
-	client_manager.Shutdown()
-	info.Print("[main] Exiting cleanly")
+	// Wait forever
+	<-make(chan os.Signal, 1)
 }
