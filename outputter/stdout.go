@@ -1,4 +1,4 @@
-package main
+package outputter
 
 import (
 	"fmt"
@@ -9,7 +9,7 @@ import (
 
 type stdout bool
 
-var StdoutOutputter = stdout(true)
+var Stdout = stdout(true)
 
 func (self stdout) Send(stats *metric.TimestampedStats) {
 	var heading = fmt.Sprintf("[output] (ts:%v) Aggregated data:\n", stats.Timestamp)

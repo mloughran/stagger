@@ -1,8 +1,9 @@
-package main
+package outputter
 
 import (
 	influxdb "github.com/influxdb/influxdb/client"
 	"github.com/pusher/stagger/metric"
+	"log"
 	uri "net/url"
 	"path"
 	"time"
@@ -13,9 +14,10 @@ type InfluxDB struct {
 	client   *influxdb.Client
 	db       string
 	on_stats chan *metric.TimestampedStats
+	log      *log.Logger
 }
 
-func NewInfluxDB(tags map[string]string, rawurl string) (client *InfluxDB, err error) {
+func NewInfluxDB(tags map[string]string, rawurl string, l *log.Logger) (client *InfluxDB, err error) {
 	url, err := uri.Parse(rawurl)
 	if err != nil {
 		return
@@ -33,32 +35,39 @@ func NewInfluxDB(tags map[string]string, rawurl string) (client *InfluxDB, err e
 		config.Password, _ = url.User.Password()
 	}
 
-	debug.Printf("[influxdb] Config: %v", config)
+	// log.Printf("[influxdb] Config: %v", config)
 
 	realclient, err := influxdb.NewClient(config)
 	if err != nil {
 		return
 	}
 
-	client = &InfluxDB{tags, realclient, db, make(chan *metric.TimestampedStats, 100)}
+	client = &InfluxDB{
+		tags:     tags,
+		client:   realclient,
+		db:       db,
+		on_stats: make(chan *metric.TimestampedStats, 100),
+		log:      l,
+	}
+	go client.run()
 	return
 }
 
-func (x *InfluxDB) Run() {
+func (x *InfluxDB) Send(stats *metric.TimestampedStats) {
+	x.on_stats <- stats
+}
+
+func (x *InfluxDB) run() {
 	var stats *metric.TimestampedStats
 	for stats = range x.on_stats {
 		// Don't bother posting if there are no metrics (it's an error anyway)
 		if len(stats.Counters) == 0 && len(stats.Dists) == 0 {
-			debug.Print("[influxdb] No stats to report")
+			// debug.Print("[influxdb] No stats to report")
 			continue
 		}
 
 		x.post(stats)
 	}
-}
-
-func (x *InfluxDB) Send(stats *metric.TimestampedStats) {
-	x.on_stats <- stats
 }
 
 func (x *InfluxDB) post(stats *metric.TimestampedStats) {
@@ -96,7 +105,7 @@ func (x *InfluxDB) post(stats *metric.TimestampedStats) {
 		index += 1
 	}
 
-	debug.Printf("[influxdb] sending %d points for %d", len(points), now)
+	// debug.Printf("[influxdb] sending %d points for %d", len(points), now)
 
 	bps := influxdb.BatchPoints{
 		Points:          points,
@@ -106,9 +115,9 @@ func (x *InfluxDB) post(stats *metric.TimestampedStats) {
 
 	ret, err := x.client.Write(bps)
 	if err != nil {
-		info.Printf("[influxdb] %v", err)
+		x.log.Printf("[influxdb] %v", err)
 	} else {
-		info.Printf("[influxdb] %v", ret)
+		x.log.Printf("[influxdb] %v", ret)
 	}
 }
 

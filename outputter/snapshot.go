@@ -1,6 +1,6 @@
 // Stores the last output and exposes it via http
 
-package main
+package outputter
 
 import (
 	"encoding/json"

@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"github.com/pusher/stagger/outputter"
 	"github.com/pusher/stagger/tcp"
 	"github.com/pusher/stagger/tcp/v1"
 	"github.com/pusher/stagger/tcp/v2"
@@ -87,31 +88,30 @@ func main() {
 	}
 	go tcp_server2.Run()
 
-	output := NewOutput()
+	group := outputter.NewGroup()
 
+	logger := log.New(os.Stderr, "", log.LstdFlags)
 	if len(*librato_email) > 0 && len(*librato_token) > 0 {
-		librato := NewLibrato(*source, *librato_email, *librato_token)
-		go librato.Run()
-		output.Add(librato)
+		librato := outputter.NewLibrato(*source, *librato_email, *librato_token, logger)
+		group.Add(librato)
 	}
 
 	if *influxdb_url != "" {
-		influxdb, err := NewInfluxDB(tags.Value(), *influxdb_url)
+		influxdb, err := outputter.NewInfluxDB(tags.Value(), *influxdb_url, logger)
 		if err != nil {
 			log.Println("InfluxDB error: ", err)
 			return
 		} else {
-			go influxdb.Run()
-			output.Add(influxdb)
+			group.Add(influxdb)
 		}
 	}
 
 	if *log_output {
-		output.Add(StdoutOutputter)
+		group.Add(outputter.Stdout)
 	}
 	if *http_addr != "" {
-		snapshot := NewSnapshot()
-		output.Add(snapshot)
+		snapshot := outputter.NewSnapshot()
+		group.Add(snapshot)
 		http.Handle("/snapshot.json", snapshot)
 
 		go func() {
@@ -120,7 +120,11 @@ func main() {
 		}()
 	}
 
-	go output.Run(aggregator.output)
+	go func() {
+		for msg := range aggregator.output {
+			group.Send(msg)
+		}
+	}()
 
 	info.Printf("[main] Stagger running. sha=%s date=%s go=%s", buildSha, buildDate, runtime.Version())
 
