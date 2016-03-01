@@ -5,6 +5,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"github.com/pusher/stagger/metric"
 	"io/ioutil"
 	"net/http"
 	"time"
@@ -14,7 +15,7 @@ type Librato struct {
 	source     string
 	email      string
 	token      string
-	on_stats   chan *TimestampedStats
+	on_stats   chan *metric.TimestampedStats
 	httpclient *http.Client
 }
 
@@ -24,7 +25,7 @@ func NewLibrato(source, email, token string) *Librato {
 		email:  email,
 		token:  token,
 		// Handle slow posts by combination of buffering channel & timing out
-		on_stats: make(chan *TimestampedStats, 100),
+		on_stats: make(chan *metric.TimestampedStats, 100),
 		httpclient: &http.Client{
 			Timeout: 2 * time.Second,
 		},
@@ -32,7 +33,7 @@ func NewLibrato(source, email, token string) *Librato {
 }
 
 func (l *Librato) Run() {
-	var stats *TimestampedStats
+	var stats *metric.TimestampedStats
 	for stats = range l.on_stats {
 		// Don't bother posting if there are no metrics (it's an error anyway)
 		if len(stats.Counters) == 0 && len(stats.Dists) == 0 {
@@ -44,11 +45,11 @@ func (l *Librato) Run() {
 	}
 }
 
-func (l *Librato) Send(stats *TimestampedStats) {
+func (l *Librato) Send(stats *metric.TimestampedStats) {
 	l.on_stats <- stats
 }
 
-func (l *Librato) post(stats *TimestampedStats) {
+func (l *Librato) post(stats *metric.TimestampedStats) {
 	gagues := make([]map[string]interface{}, 0)
 	for key, value := range stats.Counters {
 		if key.HasTags() {

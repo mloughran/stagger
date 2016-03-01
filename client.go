@@ -3,6 +3,8 @@ package main
 import (
 	"fmt"
 	"github.com/pusher/stagger/conn"
+	"github.com/pusher/stagger/metric"
+
 	"strings"
 )
 
@@ -20,11 +22,11 @@ type Client struct {
 	conn     conn.Connection
 	name     string
 	sendc    chan (message)
-	statsc   chan<- (*Stats)
+	statsc   chan<- (*metric.Stats)
 	complete chan<- (CompleteMessage)
 }
 
-func NewClient(id int64, c conn.Connection, statsc chan<- (*Stats), complete chan<- (CompleteMessage)) *Client {
+func NewClient(id int64, c conn.Connection, statsc chan<- (*metric.Stats), complete chan<- (CompleteMessage)) *Client {
 	client := &Client{
 		id,
 		c,
@@ -60,7 +62,7 @@ func (c *Client) Shutdown() {
 
 func (c *Client) Run(clientDidClose chan<- conn.Client) {
 	handleStats := func(data []byte) (ts int64, err error) {
-		var stats Stats
+		var stats metric.Stats
 		if err = unmarshal(data, &stats); err == nil {
 			ts = stats.Timestamp
 			c.statsc <- &stats

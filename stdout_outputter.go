@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/pusher/stagger/metric"
 	"log"
 	"sort"
 )
@@ -10,7 +11,7 @@ type stdout bool
 
 var StdoutOutputter = stdout(true)
 
-func (self stdout) Send(stats *TimestampedStats) {
+func (self stdout) Send(stats *metric.TimestampedStats) {
 	var heading = fmt.Sprintf("[output] (ts:%v) Aggregated data:\n", stats.Timestamp)
 
 	var output []string

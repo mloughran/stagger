@@ -7,17 +7,23 @@
 
 package main
 
+import (
+	"github.com/pusher/stagger/metric"
+)
+
+type Count float64
+
 type Aggregator struct {
-	output    chan (*TimestampedStats)
-	current   *TimestampedStats
+	output    chan (*metric.TimestampedStats)
+	current   *metric.TimestampedStats
 	currentTs int64
-	Stats     chan (*Stats)
+	Stats     chan (*metric.Stats)
 }
 
 func NewAggregator() *Aggregator {
 	return &Aggregator{
-		output: make(chan *TimestampedStats),
-		Stats:  make(chan *Stats),
+		output: make(chan *metric.TimestampedStats),
+		Stats:  make(chan *metric.Stats),
 	}
 }
 
@@ -38,11 +44,11 @@ func (self *Aggregator) newInterval(ts int64) {
 	if self.current != nil && !self.current.Empty {
 		self.report(self.current.Timestamp)
 	}
-	self.current = NewTimestampedStats(ts)
+	self.current = metric.NewTimestampedStats(ts)
 	self.currentTs = ts
 }
 
-func (self *Aggregator) feed(stats *Stats) {
+func (self *Aggregator) feed(stats *metric.Stats) {
 	if self.current == nil || stats.Timestamp != self.current.Timestamp {
 		info.Printf(
 			"[aggregator] (ts:%v) Stats received for unexpected timestamp %v, discarding",
@@ -80,15 +86,15 @@ func (self *Aggregator) report(ts int64) {
 
 // TODO: Not sure about these functions
 func (self *Aggregator) Count(ts int64, name string, value Count) {
-	self.Stats <- &Stats{
+	self.Stats <- &metric.Stats{
 		Timestamp: ts,
-		Counts:    []StatCount{StatCount{name, float64(value)}},
+		Counts:    []metric.StatCount{metric.StatCount{name, float64(value)}},
 	}
 }
 
 func (self *Aggregator) Value(ts int64, name string, value float64) {
-	self.Stats <- &Stats{
+	self.Stats <- &metric.Stats{
 		Timestamp: ts,
-		Values:    []StatValue{StatValue{name, value}},
+		Values:    []metric.StatValue{metric.StatValue{name, value}},
 	}
 }

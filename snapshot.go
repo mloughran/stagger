@@ -4,12 +4,13 @@ package main
 
 import (
 	"encoding/json"
+	"github.com/pusher/stagger/metric"
 	"net/http"
 	"sync"
 )
 
 type Snapshot struct {
-	last  *TimestampedStats
+	last  *metric.TimestampedStats
 	mutex sync.Mutex
 }
 
@@ -17,7 +18,7 @@ func NewSnapshot() *Snapshot {
 	return &Snapshot{}
 }
 
-func (s *Snapshot) Send(stats *TimestampedStats) {
+func (s *Snapshot) Send(stats *metric.TimestampedStats) {
 	s.mutex.Lock()
 	s.last = stats
 	s.mutex.Unlock()

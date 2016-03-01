@@ -2,6 +2,7 @@ package main
 
 import (
 	influxdb "github.com/influxdb/influxdb/client"
+	"github.com/pusher/stagger/metric"
 	uri "net/url"
 	"path"
 	"time"
@@ -11,7 +12,7 @@ type InfluxDB struct {
 	tags     map[string]string
 	client   *influxdb.Client
 	db       string
-	on_stats chan *TimestampedStats
+	on_stats chan *metric.TimestampedStats
 }
 
 func NewInfluxDB(tags map[string]string, rawurl string) (client *InfluxDB, err error) {
@@ -39,12 +40,12 @@ func NewInfluxDB(tags map[string]string, rawurl string) (client *InfluxDB, err e
 		return
 	}
 
-	client = &InfluxDB{tags, realclient, db, make(chan *TimestampedStats, 100)}
+	client = &InfluxDB{tags, realclient, db, make(chan *metric.TimestampedStats, 100)}
 	return
 }
 
 func (x *InfluxDB) Run() {
-	var stats *TimestampedStats
+	var stats *metric.TimestampedStats
 	for stats = range x.on_stats {
 		// Don't bother posting if there are no metrics (it's an error anyway)
 		if len(stats.Counters) == 0 && len(stats.Dists) == 0 {
@@ -56,11 +57,11 @@ func (x *InfluxDB) Run() {
 	}
 }
 
-func (x *InfluxDB) Send(stats *TimestampedStats) {
+func (x *InfluxDB) Send(stats *metric.TimestampedStats) {
 	x.on_stats <- stats
 }
 
-func (x *InfluxDB) post(stats *TimestampedStats) {
+func (x *InfluxDB) post(stats *metric.TimestampedStats) {
 	var err error
 
 	points := make([]influxdb.Point, len(stats.Counters)+len(stats.Dists))

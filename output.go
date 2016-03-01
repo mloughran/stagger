@@ -3,13 +3,17 @@
 
 package main
 
+import (
+	"github.com/pusher/stagger/metric"
+)
+
 type OutputStat struct {
 	Timestamp int64
-	Dist      *Dist
+	Dist      *metric.Dist
 }
 
 type Outputter interface {
-	Send(*TimestampedStats)
+	Send(*metric.TimestampedStats)
 }
 
 type Output struct {
@@ -20,7 +24,7 @@ func NewOutput() *Output {
 	return &Output{[]Outputter{}}
 }
 
-func (o *Output) Run(complete_chan <-chan (*TimestampedStats)) {
+func (o *Output) Run(complete_chan <-chan (*metric.TimestampedStats)) {
 	// Forward all stats to outputters
 	for stats := range complete_chan {
 		for _, op := range o.outputs {
