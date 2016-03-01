@@ -12,11 +12,11 @@ type Server struct {
 	conn.ClientManager
 	sigShutdown chan bool
 	didShutdown chan bool
-	encoding    Encoding
+	encoding    conn.Encoding
 	interval    int
 }
 
-func NewServer(tcp_addr string, d conn.ClientManager, e Encoding, interval int) (*Server, error) {
+func NewServer(tcp_addr string, d conn.ClientManager, e conn.Encoding, interval int) (*Server, error) {
 	url_, err := url.Parse(tcp_addr)
 	if err != nil {
 		return nil, err

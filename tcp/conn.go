@@ -15,7 +15,7 @@ type Message struct {
 
 type Conn struct {
 	c           net.Conn
-	encoding    Encoding
+	encoding    conn.Encoding
 	onMethod    chan conn.Message
 	onClose     chan bool
 	sendMessage chan conn.Message
@@ -23,7 +23,7 @@ type Conn struct {
 }
 
 // NewConn creates a Connection. You must select on OnMethod and OnClose
-func NewConn(c net.Conn, e Encoding, interval int) *Conn {
+func NewConn(c net.Conn, e conn.Encoding, interval int) *Conn {
 	return &Conn{c, e, make(chan conn.Message), make(chan bool), make(chan conn.Message, 1), interval}
 }
 
