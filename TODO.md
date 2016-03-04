@@ -4,3 +4,10 @@
 - Add datatypes to ruby, tagged as string)
 - Add history (write history to connection when connected)
 - Hourly daily monthly (write to disk)
+
+
+
+  select {
+    case ch <- 1: // it sent
+    default: // it didn't
+  }

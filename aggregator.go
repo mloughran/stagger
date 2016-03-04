@@ -27,14 +27,14 @@ func NewAggregator() *Aggregator {
 	}
 }
 
-func (self *Aggregator) Run(ts_complete <-chan (int64), ts_new <-chan (int64)) {
+func (self *Aggregator) Run(tsComplete <-chan (int64), tsNew <-chan (int64)) {
 	for {
 		select {
-		case ts := <-ts_new:
+		case ts := <-tsNew:
 			self.newInterval(ts)
 		case stats := <-self.Stats:
 			self.feed(stats)
-		case ts := <-ts_complete:
+		case ts := <-tsComplete:
 			self.report(ts)
 		}
 	}

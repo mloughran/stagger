@@ -16,7 +16,7 @@ type Librato struct {
 	source     string
 	email      string
 	token      string
-	on_stats   chan *metric.TimestampedStats
+	onStats    chan *metric.TimestampedStats
 	httpclient *http.Client
 	log        *log.Logger
 }
@@ -27,7 +27,7 @@ func NewLibrato(source, email, token string, l *log.Logger) *Librato {
 		email:  email,
 		token:  token,
 		// Handle slow posts by combination of buffering channel & timing out
-		on_stats: make(chan *metric.TimestampedStats, 100),
+		onStats: make(chan *metric.TimestampedStats, 100),
 		httpclient: &http.Client{
 			Timeout: 2 * time.Second,
 		},
@@ -38,12 +38,12 @@ func NewLibrato(source, email, token string, l *log.Logger) *Librato {
 }
 
 func (l *Librato) Send(stats *metric.TimestampedStats) {
-	l.on_stats <- stats
+	l.onStats <- stats
 }
 
 func (l *Librato) run() {
 	var stats *metric.TimestampedStats
-	for stats = range l.on_stats {
+	for stats = range l.onStats {
 		// Don't bother posting if there are no metrics (it's an error anyway)
 		if len(stats.Counters) == 0 && len(stats.Dists) == 0 {
 			// debug.Print("[librato] No stats to report")

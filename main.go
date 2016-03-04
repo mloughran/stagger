@@ -37,17 +37,17 @@ var (
 func main() {
 	hostname, _ := os.Hostname()
 	var (
-		http_addr     = flag.String("http", "127.0.0.1:8990", "HTTP debugging address (e.g. ':8990')")
-		influxdb_url  = flag.String("influxdb_url", "", "influxdb URL")
-		interval      = flag.Int("interval", 5, "stats interval (in seconds)")
-		librato_email = flag.String("librato_email", "", "librato email")
-		librato_token = flag.String("librato_token", "", "librato token")
-		log_output    = flag.Bool("log_output", true, "log aggregated data")
-		showDebug     = flag.Bool("debug", false, "Print debug information")
-		source        = flag.String("source", hostname, "source (for reporting)")
-		tcp_addr      = flag.String("addr", "tcp://127.0.0.1:5866", "adress for the TCP v1 mode")
-		tcp_addr2     = flag.String("addr2", "tcp://127.0.0.1:5865", "adress for the TCP v2 mode")
-		timeout       = flag.Int("timeout", 1000, "receive timeout (in ms)")
+		httpAddr     = flag.String("http", "127.0.0.1:8990", "HTTP debugging address (e.g. ':8990')")
+		influxdbUrl  = flag.String("influxdb_url", "", "influxdb URL")
+		interval     = flag.Int("interval", 5, "stats interval (in seconds)")
+		libratoEmail = flag.String("librato_email", "", "librato email")
+		libratoToken = flag.String("librato_token", "", "librato token")
+		logOutput    = flag.Bool("log_output", true, "log aggregated data")
+		showDebug    = flag.Bool("debug", false, "Print debug information")
+		source       = flag.String("source", hostname, "source (for reporting)")
+		tcpAddr      = flag.String("addr", "tcp://127.0.0.1:5866", "adress for the TCP v1 mode")
+		tcpAddr2     = flag.String("addr2", "tcp://127.0.0.1:5865", "adress for the TCP v2 mode")
+		timeout      = flag.Int("timeout", 1000, "receive timeout (in ms)")
 	)
 	tags := NewTagsValue(hostname)
 	flag.Var(tags, "tag", "adds key=value to stats (only influxdb)")
@@ -63,41 +63,41 @@ func main() {
 		*interval = 2
 	}
 
-	ts_complete := make(chan int64)
-	ts_new := make(chan int64)
+	tsComplete := make(chan int64)
+	tsNew := make(chan int64)
 
 	ticker := NewTicker(*interval)
 
 	aggregator := NewAggregator()
-	go aggregator.Run(ts_complete, ts_new)
+	go aggregator.Run(tsComplete, tsNew)
 
-	client_manager := NewClientManager(aggregator)
-	go client_manager.Run(ticker, *timeout, ts_complete, ts_new)
+	clientManager := NewClientManager(aggregator)
+	go clientManager.Run(ticker, *timeout, tsComplete, tsNew)
 
-	tcp_server, err := tcp.NewServer(*tcp_addr, client_manager, v1.Encoding{}, *interval)
+	tcpServer, err := tcp.NewServer(*tcpAddr, clientManager, v1.Encoding{}, *interval)
 	if err != nil {
 		log.Println("invalid address: ", err)
 		return
 	}
-	go tcp_server.Run()
+	go tcpServer.Run()
 
-	tcp_server2, err := tcp.NewServer(*tcp_addr2, client_manager, v2.Encoding{}, *interval)
+	tcpServer2, err := tcp.NewServer(*tcpAddr2, clientManager, v2.Encoding{}, *interval)
 	if err != nil {
 		log.Println("invalid address: ", err)
 		return
 	}
-	go tcp_server2.Run()
+	go tcpServer2.Run()
 
 	group := outputter.NewGroup()
 
 	logger := log.New(os.Stderr, "", log.LstdFlags)
-	if len(*librato_email) > 0 && len(*librato_token) > 0 {
-		librato := outputter.NewLibrato(*source, *librato_email, *librato_token, logger)
+	if len(*libratoEmail) > 0 && len(*libratoToken) > 0 {
+		librato := outputter.NewLibrato(*source, *libratoEmail, *libratoToken, logger)
 		group.Add(librato)
 	}
 
-	if *influxdb_url != "" {
-		influxdb, err := outputter.NewInfluxDB(tags.Value(), *influxdb_url, logger)
+	if *influxdbUrl != "" {
+		influxdb, err := outputter.NewInfluxDB(tags.Value(), *influxdbUrl, logger)
 		if err != nil {
 			log.Println("InfluxDB error: ", err)
 			return
@@ -106,17 +106,17 @@ func main() {
 		}
 	}
 
-	if *log_output {
+	if *logOutput {
 		group.Add(outputter.Stdout)
 	}
-	if *http_addr != "" {
+	if *httpAddr != "" {
 		snapshot := outputter.NewSnapshot()
 		group.Add(snapshot)
 		http.Handle("/snapshot.json", snapshot)
 
 		go func() {
-			info.Printf("[main] HTTP server running on %v", *http_addr)
-			log.Println(http.ListenAndServe(*http_addr, nil))
+			info.Printf("[main] HTTP server running on %v", *httpAddr)
+			log.Println(http.ListenAndServe(*httpAddr, nil))
 		}()
 	}
 

@@ -12,9 +12,9 @@ func NewTicker(interval int) <-chan (time.Time) {
 		time.Sleep(time.Duration(period.Nanoseconds() - elapsed))
 
 		// Use Ticker to tick regularly
-		tick_chan := time.Tick(period)
+		tickChan := time.Tick(period)
 		for {
-			ticks <- <-tick_chan
+			ticks <- <-tickChan
 		}
 	}()
 	return ticks

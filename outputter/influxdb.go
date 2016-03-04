@@ -10,11 +10,11 @@ import (
 )
 
 type InfluxDB struct {
-	tags     map[string]string
-	client   *influxdb.Client
-	db       string
-	on_stats chan *metric.TimestampedStats
-	log      *log.Logger
+	tags    map[string]string
+	client  *influxdb.Client
+	db      string
+	onStats chan *metric.TimestampedStats
+	log     *log.Logger
 }
 
 func NewInfluxDB(tags map[string]string, rawurl string, l *log.Logger) (client *InfluxDB, err error) {
@@ -43,23 +43,23 @@ func NewInfluxDB(tags map[string]string, rawurl string, l *log.Logger) (client *
 	}
 
 	client = &InfluxDB{
-		tags:     tags,
-		client:   realclient,
-		db:       db,
-		on_stats: make(chan *metric.TimestampedStats, 100),
-		log:      l,
+		tags:    tags,
+		client:  realclient,
+		db:      db,
+		onStats: make(chan *metric.TimestampedStats, 100),
+		log:     l,
 	}
 	go client.run()
 	return
 }
 
 func (x *InfluxDB) Send(stats *metric.TimestampedStats) {
-	x.on_stats <- stats
+	x.onStats <- stats
 }
 
 func (x *InfluxDB) run() {
 	var stats *metric.TimestampedStats
-	for stats = range x.on_stats {
+	for stats = range x.onStats {
 		// Don't bother posting if there are no metrics (it's an error anyway)
 		if len(stats.Counters) == 0 && len(stats.Dists) == 0 {
 			// debug.Print("[influxdb] No stats to report")
