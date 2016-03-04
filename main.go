@@ -107,7 +107,7 @@ func main() {
 	}
 
 	if *logOutput {
-		group.Add(outputter.Stdout)
+		group.Add(outputter.NewStdout())
 	}
 	if *httpAddr != "" {
 		snapshot := outputter.NewSnapshot()

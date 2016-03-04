@@ -37,8 +37,17 @@ func NewLibrato(source, email, token string, l *log.Logger) *Librato {
 	return x
 }
 
-func (l *Librato) Send(stats *metric.TimestampedStats) {
-	l.onStats <- stats
+func (l *Librato) Send(stats *metric.TimestampedStats) error {
+	select {
+	case l.onStats <- stats:
+		return nil
+	default:
+		return NOT_SENT
+	}
+}
+
+func (l *Librato) String() string {
+	return "librato"
 }
 
 func (l *Librato) run() {

@@ -3,24 +3,59 @@ package outputter
 import (
 	"fmt"
 	"github.com/pusher/stagger/metric"
-	"log"
+	"io"
+	"os"
 	"sort"
 )
 
-type stdout bool
+type Writer struct {
+	io.Writer
+	name    string
+	onStats chan *metric.TimestampedStats
+}
 
-var Stdout = stdout(true)
-
-func (self stdout) Send(stats *metric.TimestampedStats) {
-	var heading = fmt.Sprintf("[output] (ts:%v) Aggregated data:\n", stats.Timestamp)
-
-	var output []string
-	for key, value := range stats.Counters {
-		output = append(output, fmt.Sprintf("%v: %.5g\n", key, value))
+func NewWriter(w io.Writer, name string) (x *Writer) {
+	x = &Writer{
+		Writer:  w,
+		name:    name,
+		onStats: make(chan *metric.TimestampedStats, 100),
 	}
-	for key, value := range stats.Dists {
-		output = append(output, fmt.Sprintf("%v: %v\n", key, value))
+	go x.run()
+	return x
+}
+
+func NewStdout() *Writer {
+	return NewWriter(os.Stdout, "stdout")
+}
+
+func (w *Writer) Send(stats *metric.TimestampedStats) error {
+	select {
+	case w.onStats <- stats:
+		return nil
+	default:
+		return NOT_SENT
 	}
-	sort.Strings(output)
-	log.Print(heading, output)
+}
+
+func (w *Writer) String() string {
+	return w.name
+}
+
+func (w *Writer) run() {
+	for stats := range w.onStats {
+		var heading = fmt.Sprintf("[output] (ts:%v) Aggregated data:\n", stats.Timestamp)
+
+		var output []string
+		for key, value := range stats.Counters {
+			output = append(output, fmt.Sprintf("%v: %.5g\n", key, value))
+		}
+		for key, value := range stats.Dists {
+			output = append(output, fmt.Sprintf("%v: %v\n", key, value))
+		}
+		sort.Strings(output)
+		w.Write([]byte(heading))
+		for _, line := range output {
+			w.Write([]byte(line))
+		}
+	}
 }

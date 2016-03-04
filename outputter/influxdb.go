@@ -53,8 +53,17 @@ func NewInfluxDB(tags map[string]string, rawurl string, l *log.Logger) (client *
 	return
 }
 
-func (x *InfluxDB) Send(stats *metric.TimestampedStats) {
-	x.onStats <- stats
+func (x *InfluxDB) Send(stats *metric.TimestampedStats) error {
+	select {
+	case x.onStats <- stats:
+		return nil
+	default:
+		return NOT_SENT
+	}
+}
+
+func (x *InfluxDB) String() string {
+	return "influxdb"
 }
 
 func (x *InfluxDB) run() {

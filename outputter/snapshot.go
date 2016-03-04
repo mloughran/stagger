@@ -18,10 +18,15 @@ func NewSnapshot() *Snapshot {
 	return &Snapshot{}
 }
 
-func (s *Snapshot) Send(stats *metric.TimestampedStats) {
+func (s *Snapshot) Send(stats *metric.TimestampedStats) error {
 	s.mutex.Lock()
 	s.last = stats
 	s.mutex.Unlock()
+	return nil
+}
+
+func (s *Snapshot) String() string {
+	return "snapshot"
 }
 
 func (s *Snapshot) ServeHTTP(w http.ResponseWriter, h *http.Request) {
