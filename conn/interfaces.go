@@ -2,7 +2,7 @@ package conn
 
 type (
 	Connection interface {
-		Send(method string, params []byte)
+		Send(method string, params []byte) error
 		OnMethod() <-chan Message
 		OnClose() <-chan bool
 		Shutdown()

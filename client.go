@@ -79,7 +79,10 @@ func (c *Client) Run(clientDidClose chan<- conn.Client) {
 		select {
 		case message := <-c.sendc:
 			if b, err := marshal(message.Params); err == nil {
-				c.conn.Send(message.Method, b)
+				err = c.conn.Send(message.Method, b)
+				if err != nil {
+					info.Printf("%s Error sending message: %s", c, err)
+				}
 			} else {
 				info.Printf("%s Error encoding as msgpack: %v", c, message.Params)
 			}

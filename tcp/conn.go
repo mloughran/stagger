@@ -8,6 +8,8 @@ import (
 	"time"
 )
 
+var QUEUE_FULL = fmt.Errorf("Send queue full")
+
 type Message struct {
 	conn.Message
 	Err error
@@ -24,7 +26,7 @@ type Conn struct {
 
 // NewConn creates a Connection. You must select on OnMethod and OnClose
 func NewConn(c net.Conn, e conn.Encoding, interval int) *Conn {
-	return &Conn{c, e, make(chan conn.Message), make(chan bool), make(chan conn.Message, 1), interval}
+	return &Conn{c, e, make(chan conn.Message, 1), make(chan bool), make(chan conn.Message, 1), interval}
 }
 
 func (c *Conn) String() string {
@@ -32,8 +34,13 @@ func (c *Conn) String() string {
 }
 
 // Send sends a message to the Connection
-func (c *Conn) Send(method string, params []byte) {
-	c.sendMessage <- conn.Message{method, params}
+func (c *Conn) Send(method string, params []byte) error {
+	select {
+	case c.sendMessage <- conn.Message{method, params}:
+		return nil
+	default:
+		return QUEUE_FULL
+	}
 }
 
 func (c *Conn) OnMethod() <-chan conn.Message {
