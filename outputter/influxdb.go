@@ -90,7 +90,7 @@ func (x *InfluxDB) post(stats *metric.TimestampedStats) {
 		points[index] = influxdb.Point{
 			Measurement: key.Name(),
 			Tags:        mergeTags(x.tags, key.Tags()),
-			Time:        time.Unix(now, 0),
+			Time:        now,
 			Fields:      map[string]interface{}{"value": value},
 			Precision:   "s",
 		}
@@ -101,7 +101,7 @@ func (x *InfluxDB) post(stats *metric.TimestampedStats) {
 		points[index] = influxdb.Point{
 			Measurement: key.Name(),
 			Tags:        mergeTags(x.tags, key.Tags()),
-			Time:        time.Unix(now, 0),
+			Time:        now,
 			Fields: map[string]interface{}{
 				"value":       value.N,
 				"sum":         value.Sum_x,

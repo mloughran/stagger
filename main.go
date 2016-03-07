@@ -67,8 +67,8 @@ func main() {
 		interval.Set("2s")
 	}
 
-	tsComplete := make(chan int64)
-	tsNew := make(chan int64)
+	tsComplete := make(chan time.Time)
+	tsNew := make(chan time.Time)
 
 	ticker := NewTicker(interval.Value())
 

@@ -91,7 +91,7 @@ func (l *Librato) post(stats *metric.TimestampedStats) {
 
 	data := map[string]interface{}{
 		"source":       l.source,
-		"measure_time": stats.Timestamp,
+		"measure_time": stats.Timestamp.Unix(),
 		"gauges":       gagues,
 	}
 

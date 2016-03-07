@@ -9,6 +9,7 @@ package main
 
 import (
 	"github.com/pusher/stagger/metric"
+	"time"
 )
 
 type Count float64
@@ -26,28 +27,28 @@ func NewAggregator() *Aggregator {
 	}
 }
 
-func (self *Aggregator) Run(tsComplete <-chan (int64), tsNew <-chan (int64)) {
+func (self *Aggregator) Run(tsComplete <-chan time.Time, tsNew <-chan time.Time) {
 	for {
 		select {
-		case ts := <-tsNew:
-			self.newInterval(ts)
+		case t := <-tsNew:
+			self.newInterval(t)
 		case stats := <-self.Stats:
 			self.feed(stats)
-		case ts := <-tsComplete:
-			self.report(ts)
+		case t := <-tsComplete:
+			self.report(t)
 		}
 	}
 }
 
-func (self *Aggregator) newInterval(ts int64) {
+func (self *Aggregator) newInterval(t time.Time) {
 	if self.current != nil && !self.current.Empty {
 		self.report(self.current.Timestamp)
 	}
-	self.current = metric.NewTimestampedStats(ts)
+	self.current = metric.NewTimestampedStats(t)
 }
 
 func (self *Aggregator) feed(stats *metric.Stats) {
-	if self.current == nil || stats.Timestamp != self.current.Timestamp {
+	if self.current == nil || stats.Timestamp != self.current.Timestamp.Unix() {
 		info.Printf(
 			"[aggregator] (ts:%v) Stats received for unexpected timestamp %v, discarding",
 			self.current.Timestamp,
@@ -67,15 +68,15 @@ func (self *Aggregator) feed(stats *metric.Stats) {
 	}
 }
 
-func (self *Aggregator) report(ts int64) {
+func (self *Aggregator) report(t time.Time) {
 	if self.current == nil {
 		panic("Missing timestamped stats to report")
 	}
-	if ts != self.current.Timestamp {
-		info.Printf("[aggregator] ERROR, impossible timestamp, current is %v, got finish for %v", self.current.Timestamp, ts)
+	if t != self.current.Timestamp {
+		info.Printf("[aggregator] ERROR, impossible timestamp, current is %v, got finish for %v", self.current.Timestamp, t)
 		return
 	}
-	debug.Printf("[aggregator] (ts:%v) Finished aggregating data", ts)
+	debug.Printf("[aggregator] (ts:%v) Finished aggregating data", t)
 	self.output <- self.current
 	self.current = nil
 }

@@ -1,22 +1,20 @@
 package metric
 
+import "time"
+
 type DistMap map[StatKey]*Dist
 type CounterMap map[StatKey]float64
 
+// The object that collects all the stats emitted by clients
 type TimestampedStats struct {
-	Timestamp int64
+	Timestamp time.Time
 	Dists     DistMap
 	Counters  CounterMap
 	Empty     bool
 }
 
-func NewTimestampedStats(ts int64) *TimestampedStats {
-	return &TimestampedStats{
-		ts,
-		DistMap{},
-		CounterMap{},
-		true,
-	}
+func NewTimestampedStats(t time.Time) *TimestampedStats {
+	return &TimestampedStats{t, DistMap{}, CounterMap{}, true}
 }
 
 func (self TimestampedStats) AddCount(s StatCount) {
