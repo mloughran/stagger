@@ -96,12 +96,12 @@ func main() {
 
 	logger := log.New(os.Stderr, "", log.LstdFlags)
 	if len(*libratoEmail) > 0 && len(*libratoToken) > 0 {
-		librato := outputter.NewLibrato(*source, *libratoEmail, *libratoToken, logger)
+		librato := outputter.NewLibrato(*source, *libratoEmail, *libratoToken, logger, interval.Value())
 		group.Add(librato)
 	}
 
 	if *influxdbUrl != "" {
-		influxdb, err := outputter.NewInfluxDB(tags.Value(), *influxdbUrl, logger)
+		influxdb, err := outputter.NewInfluxDB(tags.Value(), *influxdbUrl, logger, interval.Value())
 		if err != nil {
 			log.Println("InfluxDB error: ", err)
 			return

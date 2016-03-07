@@ -17,7 +17,7 @@ type InfluxDB struct {
 	log     *log.Logger
 }
 
-func NewInfluxDB(tags map[string]string, rawurl string, l *log.Logger) (client *InfluxDB, err error) {
+func NewInfluxDB(tags map[string]string, rawurl string, l *log.Logger, interval time.Duration) (client *InfluxDB, err error) {
 	url, err := uri.Parse(rawurl)
 	if err != nil {
 		return
@@ -27,7 +27,7 @@ func NewInfluxDB(tags map[string]string, rawurl string, l *log.Logger) (client *
 
 	// Client config
 	config := influxdb.NewConfig()
-	config.Timeout = 2 * time.Second
+	config.Timeout = interval / 10 * 8
 	config.URL = *url
 
 	if url.User != nil {

@@ -21,7 +21,7 @@ type Librato struct {
 	log        *log.Logger
 }
 
-func NewLibrato(source, email, token string, l *log.Logger) *Librato {
+func NewLibrato(source, email, token string, l *log.Logger, interval time.Duration) *Librato {
 	x := &Librato{
 		source: source,
 		email:  email,
@@ -29,7 +29,7 @@ func NewLibrato(source, email, token string, l *log.Logger) *Librato {
 		// Handle slow posts by combination of buffering channel & timing out
 		onStats: make(chan *metric.TimestampedStats, 100),
 		httpclient: &http.Client{
-			Timeout: 2 * time.Second,
+			Timeout: interval / 10 * 8,
 		},
 		log: l,
 	}
