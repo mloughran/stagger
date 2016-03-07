@@ -14,10 +14,9 @@ import (
 type Count float64
 
 type Aggregator struct {
-	output    chan (*metric.TimestampedStats)
-	current   *metric.TimestampedStats
-	currentTs int64
-	Stats     chan (*metric.Stats)
+	output  chan (*metric.TimestampedStats)
+	current *metric.TimestampedStats
+	Stats   chan (*metric.Stats)
 }
 
 func NewAggregator() *Aggregator {
@@ -45,14 +44,13 @@ func (self *Aggregator) newInterval(ts int64) {
 		self.report(self.current.Timestamp)
 	}
 	self.current = metric.NewTimestampedStats(ts)
-	self.currentTs = ts
 }
 
 func (self *Aggregator) feed(stats *metric.Stats) {
 	if self.current == nil || stats.Timestamp != self.current.Timestamp {
 		info.Printf(
 			"[aggregator] (ts:%v) Stats received for unexpected timestamp %v, discarding",
-			self.currentTs,
+			self.current.Timestamp,
 			stats.Timestamp,
 		)
 		return
