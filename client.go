@@ -26,7 +26,7 @@ type Client struct {
 	complete chan<- (CompleteMessage)
 }
 
-func NewClient(id int64, c conn.Connection, statsc chan<- (*metric.Stats), complete chan<- (CompleteMessage)) *Client {
+func NewClient(id int64, c conn.Connection, statsc chan<- (*metric.Stats), complete chan<- (CompleteMessage), clientClosed chan<- conn.Client) *Client {
 	client := &Client{
 		id,
 		c,
@@ -36,6 +36,7 @@ func NewClient(id int64, c conn.Connection, statsc chan<- (*metric.Stats), compl
 		complete,
 	}
 	client.setName(nil)
+	go client.run(clientClosed)
 	return client
 }
 
@@ -60,7 +61,7 @@ func (c *Client) Shutdown() {
 	c.conn.Shutdown()
 }
 
-func (c *Client) Run(clientDidClose chan<- conn.Client) {
+func (c *Client) run(clientDidClose chan<- conn.Client) {
 	handleStats := func(data []byte) (ts int64, err error) {
 		var stats metric.Stats
 		if err = unmarshal(data, &stats); err == nil {

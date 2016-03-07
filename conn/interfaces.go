@@ -12,7 +12,6 @@ type (
 	Client interface {
 		Id() int64
 		RequestStats(ts int64)
-		Run(clientDidClose chan<- Client)
 		Send(m string, p map[string]interface{})
 		Shutdown()
 	}

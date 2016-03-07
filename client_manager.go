@@ -60,9 +60,8 @@ func (self *ClientManager) Run(ticker <-chan (time.Time), timeout int, tsComplet
 		select {
 		case conn := <-self.addClientC:
 			self.index += 1
-			client := NewClient(self.index, conn, self.agg.Stats, self.onComplete)
+			client := NewClient(self.index, conn, self.agg.Stats, self.onComplete, self.remClient)
 			clients[self.index] = client
-			go client.Run(self.remClient)
 
 			info.Printf("[cm] Added %s (count: %v)", client, len(clients))
 
