@@ -21,11 +21,11 @@ type Conn struct {
 	onMethod    chan conn.Message
 	onClose     chan bool
 	sendMessage chan conn.Message
-	interval    int
+	interval    time.Duration
 }
 
 // NewConn creates a Connection. You must select on OnMethod and OnClose
-func NewConn(c net.Conn, e conn.Encoding, interval int) *Conn {
+func NewConn(c net.Conn, e conn.Encoding, interval time.Duration) *Conn {
 	return &Conn{c, e, make(chan conn.Message, 1), make(chan bool), make(chan conn.Message, 1), interval}
 }
 
@@ -68,7 +68,7 @@ func (c *Conn) Run() {
 		for {
 			// The next message should arrive in max 2 the update interval
 			c.c.SetReadDeadline(
-				time.Now().Add(2 * time.Duration(c.interval) * time.Second),
+				time.Now().Add(2 * c.interval),
 			)
 
 			msg := Message{}

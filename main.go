@@ -11,6 +11,7 @@ import (
 	_ "net/http/pprof"
 	"os"
 	"runtime"
+	"time"
 )
 
 type debugger bool
@@ -36,10 +37,12 @@ var (
 
 func main() {
 	hostname, _ := os.Hostname()
+	interval := NewDurationValue(5 * time.Second)
+	tags := NewTagsValue(hostname)
+
 	var (
 		httpAddr     = flag.String("http", "127.0.0.1:8990", "HTTP debugging address (e.g. ':8990')")
 		influxdbUrl  = flag.String("influxdb_url", "", "influxdb URL")
-		interval     = flag.Int("interval", 5, "stats interval (in seconds)")
 		libratoEmail = flag.String("librato_email", "", "librato email")
 		libratoToken = flag.String("librato_token", "", "librato token")
 		logOutput    = flag.Bool("log_output", true, "log aggregated data")
@@ -49,7 +52,8 @@ func main() {
 		tcpAddr2     = flag.String("addr2", "tcp://127.0.0.1:5865", "adress for the TCP v2 mode")
 		timeout      = flag.Int("timeout", 1000, "receive timeout (in ms)")
 	)
-	tags := NewTagsValue(hostname)
+
+	flag.Var(interval, "interval", "stats interval")
 	flag.Var(tags, "tag", "adds key=value to stats (only influxdb)")
 	flag.Parse()
 
@@ -58,15 +62,15 @@ func main() {
 	}
 
 	// Make sure clients have time to report
-	if *interval <= 2 {
-		log.Println("Bad interval %d, changing to 2", interval)
-		*interval = 2
+	if interval.Value() < 2*time.Second {
+		log.Printf("Bad interval %d, changing to 2s", interval)
+		interval.Set("2s")
 	}
 
 	tsComplete := make(chan int64)
 	tsNew := make(chan int64)
 
-	ticker := NewTicker(*interval)
+	ticker := NewTicker(interval.Value())
 
 	aggregator := NewAggregator()
 	go aggregator.Run(tsComplete, tsNew)
@@ -74,14 +78,14 @@ func main() {
 	clientManager := NewClientManager(aggregator)
 	go clientManager.Run(ticker, *timeout, tsComplete, tsNew)
 
-	tcpServer, err := tcp.NewServer(*tcpAddr, clientManager, v1.Encoding{}, *interval)
+	tcpServer, err := tcp.NewServer(*tcpAddr, clientManager, v1.Encoding{}, interval.Value())
 	if err != nil {
 		log.Println("invalid address: ", err)
 		return
 	}
 	go tcpServer.Run()
 
-	tcpServer2, err := tcp.NewServer(*tcpAddr2, clientManager, v2.Encoding{}, *interval)
+	tcpServer2, err := tcp.NewServer(*tcpAddr2, clientManager, v2.Encoding{}, interval.Value())
 	if err != nil {
 		log.Println("invalid address: ", err)
 		return
