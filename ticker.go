@@ -13,7 +13,7 @@ func NewTicker(period time.Duration) <-chan (time.Time) {
 		// Use Ticker to tick regularly
 		tickChan := time.Tick(period)
 		for {
-			ticks <- <-tickChan
+			ticks <- (<-tickChan).Round(time.Second)
 		}
 	}()
 	return ticks
