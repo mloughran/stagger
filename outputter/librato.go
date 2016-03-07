@@ -27,7 +27,7 @@ func NewLibrato(source, email, token string, l *log.Logger, interval time.Durati
 		email:  email,
 		token:  token,
 		// Handle slow posts by combination of buffering channel & timing out
-		onStats: make(chan *metric.TimestampedStats, 100),
+		onStats: make(chan *metric.TimestampedStats, 2),
 		httpclient: &http.Client{
 			Timeout: interval / 10 * 8,
 		},

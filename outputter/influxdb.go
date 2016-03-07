@@ -46,7 +46,7 @@ func NewInfluxDB(tags map[string]string, rawurl string, l *log.Logger, interval 
 		tags:    tags,
 		client:  realclient,
 		db:      db,
-		onStats: make(chan *metric.TimestampedStats, 100),
+		onStats: make(chan *metric.TimestampedStats, 2),
 		log:     l,
 	}
 	go client.run()
