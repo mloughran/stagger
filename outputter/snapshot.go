@@ -1,15 +1,16 @@
 // Stores the last output and exposes it via http
 
-package main
+package outputter
 
 import (
 	"encoding/json"
+	"github.com/pusher/stagger/metric"
 	"net/http"
 	"sync"
 )
 
 type Snapshot struct {
-	last  *TimestampedStats
+	last  *metric.TimestampedStats
 	mutex sync.Mutex
 }
 
@@ -17,10 +18,15 @@ func NewSnapshot() *Snapshot {
 	return &Snapshot{}
 }
 
-func (s *Snapshot) Send(stats *TimestampedStats) {
+func (s *Snapshot) Send(stats *metric.TimestampedStats) error {
 	s.mutex.Lock()
 	s.last = stats
 	s.mutex.Unlock()
+	return nil
+}
+
+func (s *Snapshot) String() string {
+	return "snapshot"
 }
 
 func (s *Snapshot) ServeHTTP(w http.ResponseWriter, h *http.Request) {

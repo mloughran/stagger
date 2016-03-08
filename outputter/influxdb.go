@@ -1,20 +1,23 @@
-package main
+package outputter
 
 import (
 	influxdb "github.com/influxdb/influxdb/client"
+	"github.com/pusher/stagger/metric"
+	"log"
 	uri "net/url"
 	"path"
 	"time"
 )
 
 type InfluxDB struct {
-	tags     map[string]string
-	client   *influxdb.Client
-	db       string
-	on_stats chan *TimestampedStats
+	tags    map[string]string
+	client  *influxdb.Client
+	db      string
+	onStats chan *metric.TimestampedStats
+	log     *log.Logger
 }
 
-func NewInfluxDB(tags map[string]string, rawurl string) (client *InfluxDB, err error) {
+func NewInfluxDB(tags map[string]string, rawurl string, l *log.Logger, interval time.Duration) (client *InfluxDB, err error) {
 	url, err := uri.Parse(rawurl)
 	if err != nil {
 		return
@@ -24,7 +27,7 @@ func NewInfluxDB(tags map[string]string, rawurl string) (client *InfluxDB, err e
 
 	// Client config
 	config := influxdb.NewConfig()
-	config.Timeout = 2 * time.Second
+	config.Timeout = interval / 10 * 8
 	config.URL = *url
 
 	if url.User != nil {
@@ -32,23 +35,43 @@ func NewInfluxDB(tags map[string]string, rawurl string) (client *InfluxDB, err e
 		config.Password, _ = url.User.Password()
 	}
 
-	debug.Printf("[influxdb] Config: %v", config)
+	// log.Printf("[influxdb] Config: %v", config)
 
 	realclient, err := influxdb.NewClient(config)
 	if err != nil {
 		return
 	}
 
-	client = &InfluxDB{tags, realclient, db, make(chan *TimestampedStats, 100)}
+	client = &InfluxDB{
+		tags:    tags,
+		client:  realclient,
+		db:      db,
+		onStats: make(chan *metric.TimestampedStats, 2),
+		log:     l,
+	}
+	go client.run()
 	return
 }
 
-func (x *InfluxDB) Run() {
-	var stats *TimestampedStats
-	for stats = range x.on_stats {
+func (x *InfluxDB) Send(stats *metric.TimestampedStats) error {
+	select {
+	case x.onStats <- stats:
+		return nil
+	default:
+		return NOT_SENT
+	}
+}
+
+func (x *InfluxDB) String() string {
+	return "influxdb"
+}
+
+func (x *InfluxDB) run() {
+	var stats *metric.TimestampedStats
+	for stats = range x.onStats {
 		// Don't bother posting if there are no metrics (it's an error anyway)
 		if len(stats.Counters) == 0 && len(stats.Dists) == 0 {
-			debug.Print("[influxdb] No stats to report")
+			// debug.Print("[influxdb] No stats to report")
 			continue
 		}
 
@@ -56,11 +79,7 @@ func (x *InfluxDB) Run() {
 	}
 }
 
-func (x *InfluxDB) Send(stats *TimestampedStats) {
-	x.on_stats <- stats
-}
-
-func (x *InfluxDB) post(stats *TimestampedStats) {
+func (x *InfluxDB) post(stats *metric.TimestampedStats) {
 	var err error
 
 	points := make([]influxdb.Point, len(stats.Counters)+len(stats.Dists))
@@ -71,7 +90,7 @@ func (x *InfluxDB) post(stats *TimestampedStats) {
 		points[index] = influxdb.Point{
 			Measurement: key.Name(),
 			Tags:        mergeTags(x.tags, key.Tags()),
-			Time:        time.Unix(now, 0),
+			Time:        now,
 			Fields:      map[string]interface{}{"value": value},
 			Precision:   "s",
 		}
@@ -82,7 +101,7 @@ func (x *InfluxDB) post(stats *TimestampedStats) {
 		points[index] = influxdb.Point{
 			Measurement: key.Name(),
 			Tags:        mergeTags(x.tags, key.Tags()),
-			Time:        time.Unix(now, 0),
+			Time:        now,
 			Fields: map[string]interface{}{
 				"value":       value.N,
 				"sum":         value.Sum_x,
@@ -95,7 +114,7 @@ func (x *InfluxDB) post(stats *TimestampedStats) {
 		index += 1
 	}
 
-	debug.Printf("[influxdb] sending %d points for %d", len(points), now)
+	// debug.Printf("[influxdb] sending %d points for %d", len(points), now)
 
 	bps := influxdb.BatchPoints{
 		Points:          points,
@@ -105,9 +124,9 @@ func (x *InfluxDB) post(stats *TimestampedStats) {
 
 	ret, err := x.client.Write(bps)
 	if err != nil {
-		info.Printf("[influxdb] %v", err)
+		x.log.Printf("[influxdb] %v", err)
 	} else {
-		info.Printf("[influxdb] %v", ret)
+		x.log.Printf("[influxdb] %v", ret)
 	}
 }
 

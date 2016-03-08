@@ -3,6 +3,8 @@ package main
 import (
 	"fmt"
 	"github.com/pusher/stagger/conn"
+	"github.com/pusher/stagger/metric"
+
 	"strings"
 )
 
@@ -20,11 +22,11 @@ type Client struct {
 	conn     conn.Connection
 	name     string
 	sendc    chan (message)
-	statsc   chan<- (*Stats)
+	statsc   chan<- (*metric.Stats)
 	complete chan<- (CompleteMessage)
 }
 
-func NewClient(id int64, c conn.Connection, statsc chan<- (*Stats), complete chan<- (CompleteMessage)) *Client {
+func NewClient(id int64, c conn.Connection, statsc chan<- (*metric.Stats), complete chan<- (CompleteMessage), clientClosed chan<- conn.Client) *Client {
 	client := &Client{
 		id,
 		c,
@@ -34,6 +36,7 @@ func NewClient(id int64, c conn.Connection, statsc chan<- (*Stats), complete cha
 		complete,
 	}
 	client.setName(nil)
+	go client.run(clientClosed)
 	return client
 }
 
@@ -58,9 +61,9 @@ func (c *Client) Shutdown() {
 	c.conn.Shutdown()
 }
 
-func (c *Client) Run(clientDidClose chan<- conn.Client) {
+func (c *Client) run(clientDidClose chan<- conn.Client) {
 	handleStats := func(data []byte) (ts int64, err error) {
-		var stats Stats
+		var stats metric.Stats
 		if err = unmarshal(data, &stats); err == nil {
 			ts = stats.Timestamp
 			c.statsc <- &stats
@@ -77,7 +80,10 @@ func (c *Client) Run(clientDidClose chan<- conn.Client) {
 		select {
 		case message := <-c.sendc:
 			if b, err := marshal(message.Params); err == nil {
-				c.conn.Send(message.Method, b)
+				err = c.conn.Send(message.Method, b)
+				if err != nil {
+					info.Printf("%s Error sending message: %s", c, err)
+				}
 			} else {
 				info.Printf("%s Error encoding as msgpack: %v", c, message.Params)
 			}

@@ -16,13 +16,13 @@ type CompleteMessage struct {
 }
 
 type ClientManager struct {
-	add_client_c chan conn.Connection
-	rem_client   chan conn.Client
-	sigShutdown  chan bool
-	didShutdown  chan bool
-	onComplete   chan (CompleteMessage)
-	agg          *Aggregator
-	index        int64
+	addClientC  chan conn.Connection
+	remClient   chan conn.Client
+	sigShutdown chan bool
+	didShutdown chan bool
+	onComplete  chan (CompleteMessage)
+	agg         *Aggregator
+	index       int64
 }
 
 func NewClientManager(a *Aggregator) *ClientManager {
@@ -37,98 +37,87 @@ func NewClientManager(a *Aggregator) *ClientManager {
 	}
 }
 
-func (self *ClientManager) Run(ticker <-chan (time.Time), timeout int, ts_complete, ts_new chan<- int64) {
+func (self *ClientManager) Run(ticker <-chan (time.Time), timeout int, tsComplete, tsNew chan<- time.Time) {
 	clients := make(map[int64]conn.Client)
 
-	outstanding_stats := map[int64]int{}
-
-	// Stores the nanosecond time at which a timestamp was emitted, which may
-	// be a few ms after the second. This is used to calculate a more precise
-	// survey_latency
-	nanoTs := map[int64]int64{}
+	outstandingStats := map[time.Time]int{}
 
 	// Notification on timeout for receiving data for a timestamp
-	on_timeout := make(chan int64)
+	onTimeout := make(chan time.Time)
 
 	// Avoid allocations
 	var (
-		ts, tsn int64
-		now     time.Time
+		t       time.Time
 		latency float64
 	)
 
-	closeTimestamp := func(ts int64) {
-		delete(outstanding_stats, ts)
-		delete(nanoTs, ts)
-		ts_complete <- ts // TODO: Notify that it wasn't clean
+	closeTimestamp := func(t time.Time) {
+		delete(outstandingStats, t)
+		tsComplete <- t // TODO: Notify that it wasn't clean
 	}
 
 	for {
 		select {
-		case conn := <-self.add_client_c:
+		case conn := <-self.addClientC:
 			self.index += 1
-			client := NewClient(self.index, conn, self.agg.Stats, self.onComplete)
+			client := NewClient(self.index, conn, self.agg.Stats, self.onComplete, self.remClient)
 			clients[self.index] = client
-			go client.Run(self.rem_client)
 
 			info.Printf("[cm] Added %s (count: %v)", client, len(clients))
 
-		case client := <-self.rem_client:
+		case client := <-self.remClient:
 			delete(clients, client.Id())
 			info.Printf("[cm] Removed %s (count: %v)", client, len(clients))
 
-		case now = <-ticker:
-			ts = now.Unix()
-			nanoTs[ts] = now.UnixNano()
-			ts_new <- ts
-			if len(outstanding_stats) > 1 {
-				info.Printf("Too many outstanding stats: %v", outstanding_stats)
+		case t = <-ticker:
+			tsNew <- t
+			if len(outstandingStats) > 1 {
+				info.Printf("Too many outstanding stats: %v", outstandingStats)
 			}
 			if len(clients) > 0 {
-				info.Printf("[cm] (ts:%v) Surveying %v clients", ts, len(clients))
+				info.Printf("[cm] (t:%v) Surveying %v clients", t, len(clients))
 
 				// Store number of clients for this stat
-				outstanding_stats[ts] = len(clients)
+				outstandingStats[t] = len(clients)
 
 				// Record metric for number registered clients
-				self.agg.Count(ts, "stagger.clients", Count(len(clients)))
+				self.agg.Count(t.Unix(), "stagger.clients", Count(len(clients)))
 
 				for _, client := range clients {
-					client.RequestStats(ts)
+					client.RequestStats(t.Unix())
 				}
 
 				// Setup timeout to receive all the data
-				go func(ts int64) {
+				go func(t time.Time) {
 					time.Sleep(time.Duration(timeout) * time.Millisecond)
-					on_timeout <- ts
-				}(ts)
+					onTimeout <- t
+				}(t)
 			} else {
-				info.Printf("[cm] (ts:%v) No clients connected to survey", ts)
+				info.Printf("[cm] (t:%v) No clients connected to survey", t)
 			}
 
-		case ts = <-on_timeout:
-			if remaining, ok := outstanding_stats[ts]; ok {
-				info.Printf("[cm] (ts:%v) Survey timed out, %v clients yet to report", ts, remaining)
-				self.agg.Count(ts, "stagger.timeouts", Count(remaining))
-				closeTimestamp(ts)
+		case t = <-onTimeout:
+			if remaining, ok := outstandingStats[t]; ok {
+				info.Printf("[cm] (t:%v) Survey timed out, %v clients yet to report", t, remaining)
+				self.agg.Count(t.Unix(), "stagger.timeouts", Count(remaining))
+				closeTimestamp(t)
 			}
 
 		case c := <-self.onComplete:
-			ts = c.Timestamp
-			if left, ok := outstanding_stats[ts]; ok {
+			t = time.Unix(c.Timestamp, 0)
+			if left, ok := outstandingStats[t]; ok {
 				if left <= 0 {
 					info.Printf("[cm] Bad outstanding stats: %d", left)
 				}
 
-				tsn = nanoTs[ts]
-				outstanding_stats[ts] -= 1
+				outstandingStats[t] -= 1
 				// Record the time for this client to complete survey in ms
-				latency = float64(time.Now().UnixNano()-tsn) / 1000000
+				latency = float64(time.Now().Sub(t)) / float64(time.Millisecond)
 
-				self.agg.Value(ts, "stagger.survey_latency", latency)
+				self.agg.Value(t.Unix(), "stagger.survey_latency", latency)
 
-				if outstanding_stats[ts] == 0 {
-					closeTimestamp(ts)
+				if outstandingStats[t] == 0 {
+					closeTimestamp(t)
 				}
 			}
 		case <-self.sigShutdown:
@@ -146,7 +135,7 @@ func (self *ClientManager) Run(ticker <-chan (time.Time), timeout int, ts_comple
 }
 
 func (self *ClientManager) NewClient(c conn.Connection) {
-	self.add_client_c <- c
+	self.addClientC <- c
 }
 
 func (self *ClientManager) Shutdown() {

@@ -7,46 +7,51 @@
 
 package main
 
+import (
+	"github.com/pusher/stagger/metric"
+	"time"
+)
+
+type Count float64
+
 type Aggregator struct {
-	output    chan (*TimestampedStats)
-	current   *TimestampedStats
-	currentTs int64
-	Stats     chan (*Stats)
+	output  chan (*metric.TimestampedStats)
+	current *metric.TimestampedStats
+	Stats   chan (*metric.Stats)
 }
 
 func NewAggregator() *Aggregator {
 	return &Aggregator{
-		output: make(chan *TimestampedStats),
-		Stats:  make(chan *Stats),
+		output: make(chan *metric.TimestampedStats),
+		Stats:  make(chan *metric.Stats),
 	}
 }
 
-func (self *Aggregator) Run(ts_complete <-chan (int64), ts_new <-chan (int64)) {
+func (self *Aggregator) Run(tsComplete <-chan time.Time, tsNew <-chan time.Time) {
 	for {
 		select {
-		case ts := <-ts_new:
-			self.newInterval(ts)
+		case t := <-tsNew:
+			self.newInterval(t)
 		case stats := <-self.Stats:
 			self.feed(stats)
-		case ts := <-ts_complete:
-			self.report(ts)
+		case t := <-tsComplete:
+			self.report(t)
 		}
 	}
 }
 
-func (self *Aggregator) newInterval(ts int64) {
+func (self *Aggregator) newInterval(t time.Time) {
 	if self.current != nil && !self.current.Empty {
 		self.report(self.current.Timestamp)
 	}
-	self.current = NewTimestampedStats(ts)
-	self.currentTs = ts
+	self.current = metric.NewTimestampedStats(t)
 }
 
-func (self *Aggregator) feed(stats *Stats) {
-	if self.current == nil || stats.Timestamp != self.current.Timestamp {
+func (self *Aggregator) feed(stats *metric.Stats) {
+	if self.current == nil || stats.Timestamp != self.current.Timestamp.Unix() {
 		info.Printf(
 			"[aggregator] (ts:%v) Stats received for unexpected timestamp %v, discarding",
-			self.currentTs,
+			self.current.Timestamp,
 			stats.Timestamp,
 		)
 		return
@@ -63,15 +68,15 @@ func (self *Aggregator) feed(stats *Stats) {
 	}
 }
 
-func (self *Aggregator) report(ts int64) {
+func (self *Aggregator) report(t time.Time) {
 	if self.current == nil {
 		panic("Missing timestamped stats to report")
 	}
-	if ts != self.current.Timestamp {
-		info.Printf("[aggregator] ERROR, impossible timestamp, current is %v, got finish for %v", self.current.Timestamp, ts)
+	if t != self.current.Timestamp {
+		info.Printf("[aggregator] ERROR, impossible timestamp, current is %v, got finish for %v", self.current.Timestamp, t)
 		return
 	}
-	debug.Printf("[aggregator] (ts:%v) Finished aggregating data", ts)
+	debug.Printf("[aggregator] (ts:%v) Finished aggregating data", t)
 	self.output <- self.current
 	self.current = nil
 }
@@ -80,15 +85,15 @@ func (self *Aggregator) report(ts int64) {
 
 // TODO: Not sure about these functions
 func (self *Aggregator) Count(ts int64, name string, value Count) {
-	self.Stats <- &Stats{
+	self.Stats <- &metric.Stats{
 		Timestamp: ts,
-		Counts:    []StatCount{StatCount{name, float64(value)}},
+		Counts:    []metric.StatCount{metric.StatCount{name, float64(value)}},
 	}
 }
 
 func (self *Aggregator) Value(ts int64, name string, value float64) {
-	self.Stats <- &Stats{
+	self.Stats <- &metric.Stats{
 		Timestamp: ts,
-		Values:    []StatValue{StatValue{name, value}},
+		Values:    []metric.StatValue{metric.StatValue{name, value}},
 	}
 }

@@ -4,6 +4,7 @@ import (
 	"github.com/pusher/stagger/conn"
 	"net"
 	"net/url"
+	"time"
 )
 
 type Server struct {
@@ -12,11 +13,11 @@ type Server struct {
 	conn.ClientManager
 	sigShutdown chan bool
 	didShutdown chan bool
-	encoding    Encoding
-	interval    int
+	encoding    conn.Encoding
+	interval    time.Duration
 }
 
-func NewServer(tcp_addr string, d conn.ClientManager, e Encoding, interval int) (*Server, error) {
+func NewServer(tcp_addr string, d conn.ClientManager, e conn.Encoding, interval time.Duration) (*Server, error) {
 	url_, err := url.Parse(tcp_addr)
 	if err != nil {
 		return nil, err

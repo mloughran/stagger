@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"github.com/pusher/stagger/outputter"
 	"github.com/pusher/stagger/tcp"
 	"github.com/pusher/stagger/tcp/v1"
 	"github.com/pusher/stagger/tcp/v2"
@@ -10,6 +11,7 @@ import (
 	_ "net/http/pprof"
 	"os"
 	"runtime"
+	"time"
 )
 
 type debugger bool
@@ -35,20 +37,23 @@ var (
 
 func main() {
 	hostname, _ := os.Hostname()
-	var (
-		http_addr     = flag.String("http", "127.0.0.1:8990", "HTTP debugging address (e.g. ':8990')")
-		influxdb_url  = flag.String("influxdb_url", "", "influxdb URL")
-		interval      = flag.Int("interval", 5, "stats interval (in seconds)")
-		librato_email = flag.String("librato_email", "", "librato email")
-		librato_token = flag.String("librato_token", "", "librato token")
-		log_output    = flag.Bool("log_output", true, "log aggregated data")
-		showDebug     = flag.Bool("debug", false, "Print debug information")
-		source        = flag.String("source", hostname, "source (for reporting)")
-		tcp_addr      = flag.String("addr", "tcp://127.0.0.1:5866", "adress for the TCP v1 mode")
-		tcp_addr2     = flag.String("addr2", "tcp://127.0.0.1:5865", "adress for the TCP v2 mode")
-		timeout       = flag.Int("timeout", 1000, "receive timeout (in ms)")
-	)
+	interval := NewDurationValue(5 * time.Second)
 	tags := NewTagsValue(hostname)
+
+	var (
+		httpAddr     = flag.String("http", "127.0.0.1:8990", "HTTP debugging address (e.g. ':8990')")
+		influxdbUrl  = flag.String("influxdb_url", "", "influxdb URL")
+		libratoEmail = flag.String("librato_email", "", "librato email")
+		libratoToken = flag.String("librato_token", "", "librato token")
+		logOutput    = flag.Bool("log_output", true, "log aggregated data")
+		showDebug    = flag.Bool("debug", false, "Print debug information")
+		source       = flag.String("source", hostname, "source (for reporting)")
+		tcpAddr      = flag.String("addr", "tcp://127.0.0.1:5866", "adress for the TCP v1 mode")
+		tcpAddr2     = flag.String("addr2", "tcp://127.0.0.1:5865", "adress for the TCP v2 mode")
+		timeout      = flag.Int("timeout", 1000, "receive timeout (in ms)")
+	)
+
+	flag.Var(interval, "interval", "stats interval")
 	flag.Var(tags, "tag", "adds key=value to stats (only influxdb)")
 	flag.Parse()
 
@@ -57,70 +62,73 @@ func main() {
 	}
 
 	// Make sure clients have time to report
-	if *interval <= 2 {
-		log.Println("Bad interval %d, changing to 2", interval)
-		*interval = 2
+	if interval.Value() < 2*time.Second {
+		log.Printf("Bad interval %d, changing to 2s", interval)
+		interval.Set("2s")
 	}
 
-	ts_complete := make(chan int64)
-	ts_new := make(chan int64)
+	tsComplete := make(chan time.Time)
+	tsNew := make(chan time.Time)
 
-	ticker := NewTicker(*interval)
+	ticker := NewTicker(interval.Value())
 
 	aggregator := NewAggregator()
-	go aggregator.Run(ts_complete, ts_new)
+	go aggregator.Run(tsComplete, tsNew)
 
-	client_manager := NewClientManager(aggregator)
-	go client_manager.Run(ticker, *timeout, ts_complete, ts_new)
+	clientManager := NewClientManager(aggregator)
+	go clientManager.Run(ticker, *timeout, tsComplete, tsNew)
 
-	tcp_server, err := tcp.NewServer(*tcp_addr, client_manager, v1.Encoding{}, *interval)
+	tcpServer, err := tcp.NewServer(*tcpAddr, clientManager, v1.Encoding{}, interval.Value())
 	if err != nil {
 		log.Println("invalid address: ", err)
 		return
 	}
-	go tcp_server.Run()
+	go tcpServer.Run()
 
-	tcp_server2, err := tcp.NewServer(*tcp_addr2, client_manager, v2.Encoding{}, *interval)
+	tcpServer2, err := tcp.NewServer(*tcpAddr2, clientManager, v2.Encoding{}, interval.Value())
 	if err != nil {
 		log.Println("invalid address: ", err)
 		return
 	}
-	go tcp_server2.Run()
+	go tcpServer2.Run()
 
-	output := NewOutput()
+	group := outputter.NewGroup()
 
-	if len(*librato_email) > 0 && len(*librato_token) > 0 {
-		librato := NewLibrato(*source, *librato_email, *librato_token)
-		go librato.Run()
-		output.Add(librato)
+	logger := log.New(os.Stderr, "", log.LstdFlags)
+	if len(*libratoEmail) > 0 && len(*libratoToken) > 0 {
+		librato := outputter.NewLibrato(*source, *libratoEmail, *libratoToken, logger, interval.Value())
+		group.Add(librato)
 	}
 
-	if *influxdb_url != "" {
-		influxdb, err := NewInfluxDB(tags.Value(), *influxdb_url)
+	if *influxdbUrl != "" {
+		influxdb, err := outputter.NewInfluxDB(tags.Value(), *influxdbUrl, logger, interval.Value())
 		if err != nil {
 			log.Println("InfluxDB error: ", err)
 			return
 		} else {
-			go influxdb.Run()
-			output.Add(influxdb)
+			group.Add(influxdb)
 		}
 	}
 
-	if *log_output {
-		output.Add(StdoutOutputter)
+	if *logOutput {
+		group.Add(outputter.NewStdout())
 	}
-	if *http_addr != "" {
-		snapshot := NewSnapshot()
-		output.Add(snapshot)
+	if *httpAddr != "" {
+		snapshot := outputter.NewSnapshot()
+		group.Add(snapshot)
 		http.Handle("/snapshot.json", snapshot)
 
 		go func() {
-			info.Printf("[main] HTTP server running on %v", *http_addr)
-			log.Println(http.ListenAndServe(*http_addr, nil))
+			info.Printf("[main] HTTP server running on %v", *httpAddr)
+			log.Println(http.ListenAndServe(*httpAddr, nil))
 		}()
 	}
 
-	go output.Run(aggregator.output)
+	go func() {
+		for msg := range aggregator.output {
+			group.Send(msg)
+		}
+	}()
 
 	info.Printf("[main] Stagger running. sha=%s date=%s go=%s", buildSha, buildDate, runtime.Version())
 

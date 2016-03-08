@@ -1,63 +1,20 @@
-package main
+package metric
 
-import (
-	"strings"
-)
-
-type Count float64
-
-// Format: key,tag1=value1,tag2=value2
-//
-// We assume the tag keys are sorted alphabetically
-// We assume the tag keys and values don't contain commas
-// We assume the tag keys and values are separated by '='
-type StatKey string
-
-func (self StatKey) Name() string {
-	return strings.SplitN(self.String(), ",", 2)[0]
-}
-
-func (self StatKey) Tags() (tags map[string]string) {
-	pairs := strings.Split(self.String(), ",")
-	if len(pairs) <= 1 {
-		return
-	}
-	pairs = pairs[1:] // Remove name
-	tags = make(map[string]string, len(pairs))
-	for _, pair := range pairs {
-		kv := strings.SplitN(pair, "=", 2)
-		if len(kv) == 2 {
-			tags[kv[0]] = kv[1]
-		} // Ignore malformed data otherwise
-	}
-	return
-}
-
-func (self StatKey) HasTags() bool {
-	return strings.ContainsRune(self.String(), ',')
-}
-
-func (self StatKey) String() string {
-	return string(self)
-}
+import "time"
 
 type DistMap map[StatKey]*Dist
 type CounterMap map[StatKey]float64
 
+// The object that collects all the stats emitted by clients
 type TimestampedStats struct {
-	Timestamp int64
+	Timestamp time.Time
 	Dists     DistMap
 	Counters  CounterMap
 	Empty     bool
 }
 
-func NewTimestampedStats(ts int64) *TimestampedStats {
-	return &TimestampedStats{
-		ts,
-		DistMap{},
-		CounterMap{},
-		true,
-	}
+func NewTimestampedStats(t time.Time) *TimestampedStats {
+	return &TimestampedStats{t, DistMap{}, CounterMap{}, true}
 }
 
 func (self TimestampedStats) AddCount(s StatCount) {

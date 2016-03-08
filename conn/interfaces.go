@@ -2,7 +2,7 @@ package conn
 
 type (
 	Connection interface {
-		Send(method string, params []byte)
+		Send(method string, params []byte) error
 		OnMethod() <-chan Message
 		OnClose() <-chan bool
 		Shutdown()
@@ -12,7 +12,6 @@ type (
 	Client interface {
 		Id() int64
 		RequestStats(ts int64)
-		Run(clientDidClose chan<- Client)
 		Send(m string, p map[string]interface{})
 		Shutdown()
 	}
