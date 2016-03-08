@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"github.com/pusher/stagger/metric"
 	"net/http"
+	"strconv"
 	"sync"
 )
 
@@ -35,10 +36,26 @@ func (s *Snapshot) String() string {
 }
 
 func (s *Snapshot) ServeHTTP(w http.ResponseWriter, h *http.Request) {
+	var (
+		b   []byte
+		err error
+	)
+
 	s.mutex.Lock()
-	if b, err := json.Marshal(SnapshotFormat{s.last.Timestamp.Unix(), s.last}); err == nil {
-		w.Header().Set("Content-Type", "application/json")
-		w.Write(b)
+	if s.last != nil {
+		b, err = json.Marshal(SnapshotFormat{s.last.Timestamp.Unix(), s.last})
+	} else {
+		b, err = json.Marshal(nil)
 	}
 	s.mutex.Unlock()
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Length", strconv.Itoa(len(b)))
+	if err != nil {
+		w.WriteHeader(500)
+	} else {
+		w.WriteHeader(200)
+	}
+
+	w.Write(b)
 }
