@@ -14,6 +14,11 @@ type Snapshot struct {
 	mutex sync.Mutex
 }
 
+type SnapshotFormat struct {
+	Timestamp int64
+	*metric.TimestampedStats
+}
+
 func NewSnapshot() *Snapshot {
 	return &Snapshot{}
 }
@@ -31,7 +36,7 @@ func (s *Snapshot) String() string {
 
 func (s *Snapshot) ServeHTTP(w http.ResponseWriter, h *http.Request) {
 	s.mutex.Lock()
-	if b, err := json.Marshal(s.last); err == nil {
+	if b, err := json.Marshal(SnapshotFormat{s.last.Timestamp.Unix(), s.last}); err == nil {
 		w.Header().Set("Content-Type", "application/json")
 		w.Write(b)
 	}
