@@ -48,10 +48,14 @@ func (self *Aggregator) newInterval(t time.Time) {
 }
 
 func (self *Aggregator) feed(stats *metric.Stats) {
-	if self.current == nil || stats.Timestamp != self.current.Timestamp.Unix() {
+	var currentTs *time.Time
+	if self.current != nil {
+		currentTs = &self.current.Timestamp
+	}
+	if currentTs == nil || stats.Timestamp != currentTs.Unix() {
 		info.Printf(
 			"[aggregator] (ts:%v) Stats received for unexpected timestamp %v, discarding",
-			self.current.Timestamp,
+			currentTs,
 			stats.Timestamp,
 		)
 		return
