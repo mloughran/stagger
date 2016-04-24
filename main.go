@@ -4,7 +4,6 @@ import (
 	"flag"
 	"github.com/pusher/stagger/outputter"
 	"github.com/pusher/stagger/tcp"
-	"github.com/pusher/stagger/tcp/v1"
 	"github.com/pusher/stagger/tcp/v2"
 	"log"
 	"net/http"
@@ -48,7 +47,6 @@ func main() {
 		logOutput    = flag.Bool("log_output", true, "log aggregated data")
 		showDebug    = flag.Bool("debug", false, "Print debug information")
 		source       = flag.String("source", hostname, "source (for reporting)")
-		tcpAddr      = flag.String("addr", "tcp://127.0.0.1:5866", "adress for the TCP v1 mode")
 		tcpAddr2     = flag.String("addr2", "tcp://127.0.0.1:5865", "adress for the TCP v2 mode")
 		timeout      = flag.Int("timeout", 1000, "receive timeout (in ms)")
 	)
@@ -75,13 +73,6 @@ func main() {
 
 	clientManager := NewClientManager(aggregator)
 	go clientManager.Run(interval.Value(), *timeout, tsComplete, tsNew)
-
-	tcpServer, err := tcp.NewServer(*tcpAddr, clientManager, v1.Encoding{}, interval.Value())
-	if err != nil {
-		log.Println("invalid address: ", err)
-		return
-	}
-	go tcpServer.Run()
 
 	tcpServer2, err := tcp.NewServer(*tcpAddr2, clientManager, v2.Encoding{}, interval.Value())
 	if err != nil {
