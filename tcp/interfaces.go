@@ -1,9 +1,13 @@
-package conn
+package tcp
+
+import (
+	"github.com/pusher/stagger/conn"
+)
 
 type (
 	Connection interface {
 		Send(method string, params []byte) error
-		OnMethod() <-chan Message
+		OnMethod() <-chan conn.Message
 		OnClose() <-chan bool
 		Shutdown()
 		String() string

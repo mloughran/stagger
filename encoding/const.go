@@ -1,8 +1,8 @@
-package v2
+package encoding
 
 // Encoding constants
 //
-// see ../../docs/ENCODING.md
+// see ../docs/ENCODING.md
 
 const (
 	PAIR_PING        = method(0x28) // Both

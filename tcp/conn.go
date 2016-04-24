@@ -16,7 +16,7 @@ type Message struct {
 }
 
 type Conn struct {
-	c           net.Conn
+	c           conn.Conn
 	encoding    conn.Encoding
 	onMethod    chan conn.Message
 	onClose     chan bool
@@ -26,7 +26,7 @@ type Conn struct {
 
 // NewConn creates a Connection. You must select on OnMethod and OnClose
 func NewConn(c net.Conn, e conn.Encoding, interval time.Duration) *Conn {
-	return &Conn{c, e, make(chan conn.Message, 1), make(chan bool), make(chan conn.Message, 1), interval}
+	return &Conn{conn.NewConn(c, e), e, make(chan conn.Message, 1), make(chan bool), make(chan conn.Message, 1), interval}
 }
 
 func (c *Conn) String() string {
@@ -72,7 +72,7 @@ func (c *Conn) Run() {
 			)
 
 			msg := Message{}
-			msg.Message, msg.Err = c.encoding.ReadMessage(c.c)
+			msg.Message, msg.Err = c.c.ReadMessage()
 			recvMessage <- msg
 			if msg.Err != nil {
 				break
@@ -83,7 +83,7 @@ func (c *Conn) Run() {
 	// send method for use by this goroutine
 	send := func(msg conn.Message) (err error) {
 		debug.Printf("Sending %v", msg)
-		err = c.encoding.WriteMessage(c.c, msg)
+		err = c.c.WriteMessage(msg)
 		return
 	}
 

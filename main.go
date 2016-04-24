@@ -2,9 +2,9 @@ package main
 
 import (
 	"flag"
+	"github.com/pusher/stagger/encoding"
 	"github.com/pusher/stagger/outputter"
 	"github.com/pusher/stagger/tcp"
-	"github.com/pusher/stagger/tcp/v2"
 	"log"
 	"net/http"
 	_ "net/http/pprof"
@@ -74,7 +74,7 @@ func main() {
 	clientManager := NewClientManager(aggregator)
 	go clientManager.Run(interval.Value(), *timeout, tsComplete, tsNew)
 
-	tcpServer2, err := tcp.NewServer(*tcpAddr2, clientManager, v2.Encoding{}, interval.Value())
+	tcpServer2, err := tcp.NewServer(*tcpAddr2, clientManager, encoding.Encoding{}, interval.Value())
 	if err != nil {
 		log.Println("invalid address: ", err)
 		return

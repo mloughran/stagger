@@ -2,8 +2,8 @@ package main
 
 import (
 	"fmt"
-	"github.com/pusher/stagger/conn"
 	"github.com/pusher/stagger/metric"
+	"github.com/pusher/stagger/tcp"
 
 	"strings"
 )
@@ -19,14 +19,14 @@ type message struct {
 
 type Client struct {
 	id       int64
-	conn     conn.Connection
+	conn     tcp.Connection
 	name     string
 	sendc    chan (message)
 	statsc   chan<- (*metric.Stats)
 	complete chan<- (CompleteMessage)
 }
 
-func NewClient(id int64, c conn.Connection, statsc chan<- (*metric.Stats), complete chan<- (CompleteMessage), clientClosed chan<- conn.Client) *Client {
+func NewClient(id int64, c tcp.Connection, statsc chan<- (*metric.Stats), complete chan<- (CompleteMessage), clientClosed chan<- tcp.Client) *Client {
 	client := &Client{
 		id,
 		c,
@@ -61,7 +61,7 @@ func (c *Client) Shutdown() {
 	c.conn.Shutdown()
 }
 
-func (c *Client) run(clientDidClose chan<- conn.Client) {
+func (c *Client) run(clientDidClose chan<- tcp.Client) {
 	handleStats := func(data []byte) (ts int64, err error) {
 		var stats metric.Stats
 		if err = unmarshal(data, &stats); err == nil {

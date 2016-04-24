@@ -10,14 +10,14 @@ import (
 type Server struct {
 	tcp_net   string
 	tcp_laddr string
-	conn.ClientManager
+	ClientManager
 	sigShutdown chan bool
 	didShutdown chan bool
 	encoding    conn.Encoding
 	interval    time.Duration
 }
 
-func NewServer(tcp_addr string, d conn.ClientManager, e conn.Encoding, interval time.Duration) (*Server, error) {
+func NewServer(tcp_addr string, d ClientManager, e conn.Encoding, interval time.Duration) (*Server, error) {
 	url_, err := url.Parse(tcp_addr)
 	if err != nil {
 		return nil, err
