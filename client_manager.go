@@ -37,8 +37,9 @@ func NewClientManager(a *Aggregator) *ClientManager {
 	}
 }
 
-func (self *ClientManager) Run(ticker <-chan (time.Time), timeout int, tsComplete, tsNew chan<- time.Time) {
+func (self *ClientManager) Run(interval time.Duration, timeout int, tsComplete, tsNew chan<- time.Time) {
 	clients := make(map[int64]conn.Client)
+	ticker := NewTicker(interval)
 
 	outstandingStats := map[time.Time]int{}
 
@@ -73,6 +74,10 @@ func (self *ClientManager) Run(ticker <-chan (time.Time), timeout int, tsComplet
 			tsNew <- t
 			if len(outstandingStats) > 1 {
 				info.Printf("Too many outstanding stats: %v", outstandingStats)
+			}
+			if t.UnixNano()%int64(interval) != 0 {
+				info.Printf("[cm] timestamp (t:%v) out of sync", t)
+				continue // skip this beat
 			}
 			if len(clients) > 0 {
 				info.Printf("[cm] (t:%v) Surveying %v clients", t, len(clients))

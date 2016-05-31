@@ -70,13 +70,11 @@ func main() {
 	tsComplete := make(chan time.Time)
 	tsNew := make(chan time.Time)
 
-	ticker := NewTicker(interval.Value())
-
 	aggregator := NewAggregator()
 	go aggregator.Run(tsComplete, tsNew)
 
 	clientManager := NewClientManager(aggregator)
-	go clientManager.Run(ticker, *timeout, tsComplete, tsNew)
+	go clientManager.Run(interval.Value(), *timeout, tsComplete, tsNew)
 
 	tcpServer, err := tcp.NewServer(*tcpAddr, clientManager, v1.Encoding{}, interval.Value())
 	if err != nil {
