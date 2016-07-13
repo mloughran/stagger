@@ -1,0 +1,300 @@
+package client
+
+import (
+	"github.com/pusher/stagger/conn"
+	"github.com/pusher/stagger/encoding"
+	"github.com/pusher/stagger/metric"
+	"net"
+	"os"
+	"strconv"
+	"sync"
+	"time"
+)
+
+type (
+	callbacks struct {
+		metrics map[conn.StatKey]func() float64
+		mutex   sync.Mutex
+	}
+
+	counts struct {
+		metrics map[conn.StatKey]float64
+		mutex   sync.Mutex
+	}
+
+	cumulativeCounts struct {
+		metrics map[conn.StatKey]cumulativeCount
+		mutex   sync.Mutex
+	}
+
+	// Like a counter, but (current - prior) is reported.
+	cumulativeCount struct {
+		current float64
+		prior   float64
+	}
+
+	distributions struct {
+		metrics map[conn.StatKey]metric.Dist
+		mutex   sync.Mutex
+	}
+
+	Client struct {
+		conn conn.Conn
+
+		callbacks        callbacks
+		counts           counts
+		cumulativeCounts cumulativeCounts
+		distributions    distributions
+	}
+)
+
+// Dial connects to Stagger and send a RegisterProcess message with
+// tags "cmd"=os.Args[0], "pid"=strconv.Itoa(os.Getpid()).
+func Dial(addr string) (*Client, error) {
+	c, err := DialNoRegister(addr)
+	if err != nil {
+		return nil, err
+	}
+
+	args := map[string]string{
+		"cmd": os.Args[0],
+		"pid": strconv.Itoa(os.Getpid()),
+	}
+	c.RegisterProcess(args)
+
+	return c, nil
+}
+
+// DialNoRegister connects to Stagger, but does not send the
+// RegisterProcess message. You will need to call
+// 'Client.RegisterProcess' yourself.
+func DialNoRegister(addr string) (*Client, error) {
+	c1, err := net.DialTimeout("tcp", addr, 5*time.Second)
+	if err != nil {
+		return nil, err
+	}
+
+	c := Client{conn: conn.NewConn(c1, encoding.Encoding{})}
+
+	return &c, nil
+}
+
+// RegisterProcess identifies the client to the server.
+func (c *Client) RegisterProcess(tags map[string]string) error {
+	return c.conn.WriteMessage(conn.RegisterProcess{Tags: tags})
+}
+
+// RegisterCallback adds a metric-gathering callback to the client
+// which is called once every reporting period. This is useful for
+// infrequently-changing values.
+func (c *Client) RegisterCallback(k conn.StatKey, cb func() float64) {
+	c.callbacks.lock()
+	c.callbacks.unsafeRegister(k, cb)
+	c.callbacks.unlock()
+}
+
+// ReportCount reports the current value of a counter.
+func (c *Client) ReportCount(k conn.StatKey, v float64) {
+	c.counts.lock()
+	c.counts.unsafeReport(k, v)
+	c.counts.unlock()
+}
+
+// ReportCounts reports a collection of counter values. This is
+// atomic: if a ReportAll request arrives as this function executes,
+// the server will not be given a partially-updated state.
+func (c *Client) ReportCounts(counters map[conn.StatKey]float64) {
+	c.counts.lock()
+	for k, v := range counters {
+		c.counts.unsafeReport(k, v)
+	}
+	c.counts.unlock()
+}
+
+// ReportCumulativeCount reports the current value of a cumulative
+// counter. When statistics are reported, the value reported for a
+// cumulative counter is (current - prior), to allow reporting metrics
+// which increase over time.
+func (c *Client) ReportCumulativeCount(k conn.StatKey, v float64) {
+	c.cumulativeCounts.lock()
+	c.cumulativeCounts.unsafeReport(k, v)
+	c.cumulativeCounts.unlock()
+}
+
+// ReportCumulativeCounts reports a collection of cumulativecounter
+// values. This is atomic: if a ReportAll request arrives as this
+// function executes, the server will not be given a partially-updated
+// state.
+func (c *Client) ReportCumulativeCounts(counters map[conn.StatKey]float64) {
+	c.cumulativeCounts.lock()
+	for k, v := range counters {
+		c.cumulativeCounts.unsafeReport(k, v)
+	}
+	c.cumulativeCounts.unlock()
+}
+
+// ReportDistribution adds a measurement to a distribution. If the
+// distribution did not exist, it is created with this being the first
+// measurement.
+func (c *Client) ReportDistribution(k conn.StatKey, v float64) {
+	c.distributions.lock()
+	c.distributions.unsafeReport(k, v)
+	c.distributions.unlock()
+}
+
+// ReportDistributions adds a collection of distribution values. Like
+// 'ReportCounts', this is atomic.
+func (c *Client) ReportDistributions(distributions map[conn.StatKey][]float64) {
+	c.distributions.lock()
+	for k, vs := range distributions {
+		for _, v := range vs {
+			c.distributions.unsafeReport(k, v)
+		}
+	}
+	c.distributions.unlock()
+}
+
+// Run executes the Stagger client. Run forever responding to pings
+// and requests for reports. This closes the connection on error.
+func (c *Client) Run() error {
+	defer c.conn.Close()
+
+	for {
+		msg, err := c.conn.ReadMessage()
+		if err != nil {
+			return err
+		}
+
+		switch msg.(type) {
+		case *conn.PairPing:
+			if err := c.conn.WriteMessage(conn.PairPong{}); err != nil {
+				return err
+			}
+		case *conn.ReportAll:
+			stats := c.report()
+
+			if err := c.conn.WriteMessage(conn.StatsComplete{Stats: stats}); err != nil {
+				return err
+			}
+		}
+	}
+}
+
+/// INTERNAL
+
+func (cs *callbacks) lock() {
+	cs.mutex.Lock()
+}
+
+func (cs *callbacks) unlock() {
+	cs.mutex.Unlock()
+}
+
+// Not safe for concurrent use!
+func (cs *callbacks) unsafeRegister(k conn.StatKey, cb func() float64) {
+	cs.metrics[k] = cb
+}
+
+func (cs *counts) lock() {
+	cs.mutex.Lock()
+}
+
+func (cs *counts) unlock() {
+	cs.mutex.Unlock()
+}
+
+// Not safe for concurrent use!
+func (cs *counts) unsafeReport(k conn.StatKey, v float64) {
+	cs.metrics[k] = v
+}
+
+func (cs *cumulativeCounts) lock() {
+	cs.mutex.Lock()
+}
+
+func (cs *cumulativeCounts) unlock() {
+	cs.mutex.Unlock()
+}
+
+// Not safe for concurrent use!
+func (cs *cumulativeCounts) unsafeReport(k conn.StatKey, v float64) {
+	c, ok := cs.metrics[k]
+
+	if ok {
+		c.prior = c.current
+	}
+
+	c.current = v
+	cs.metrics[k] = c
+}
+
+func (ds *distributions) lock() {
+	ds.mutex.Lock()
+}
+
+func (ds *distributions) unlock() {
+	ds.mutex.Unlock()
+}
+
+// Not safe for concurrent use!
+func (ds *distributions) unsafeReport(k conn.StatKey, v float64) {
+	d, ok := ds.metrics[k]
+
+	if ok {
+		d.AddEntry(v)
+	} else {
+		d = *metric.NewDistFromValue(v)
+	}
+
+	ds.metrics[k] = d
+}
+
+// Returns the current statistics, is atomic.
+func (c *Client) report() conn.Stats {
+	// Prevent concurrent modification of the stats as we report.
+	c.callbacks.lock()
+	c.counts.lock()
+	c.cumulativeCounts.lock()
+	c.distributions.lock()
+	defer c.callbacks.unlock()
+	defer c.counts.unlock()
+	defer c.cumulativeCounts.unlock()
+	defer c.distributions.unlock()
+
+	var (
+		numCallbacks = len(c.callbacks.metrics)
+		numCounts    = len(c.counts.metrics)
+		numCumcounts = len(c.cumulativeCounts.metrics)
+		numDists     = len(c.distributions.metrics)
+	)
+
+	stats := conn.Stats{
+		Timestamp: time.Now().Unix(),
+		Counts:    make([]conn.StatCount, numCallbacks+numCounts+numCumcounts, numCallbacks+numCounts+numCumcounts),
+		Dists:     make([]conn.StatDist, numDists, numDists),
+	}
+
+	i := 0
+	for k, cb := range c.callbacks.metrics {
+		stats.Counts[i] = conn.StatCount{Name: k.String(), Count: cb()}
+		i++
+	}
+
+	for k, v := range c.counts.metrics {
+		stats.Counts[i] = conn.StatCount{Name: k.String(), Count: v}
+		i++
+	}
+
+	for k, v := range c.cumulativeCounts.metrics {
+		stats.Counts[i] = conn.StatCount{Name: k.String(), Count: v.current - v.prior}
+		i++
+	}
+
+	i = 0
+	for k, v := range c.distributions.metrics {
+		stats.Dists[i] = conn.StatDist{Name: k.String(), Dist: [5]float64{v.N, v.Min, v.Max, v.Sum_x, v.Sum_x2}}
+		i++
+	}
+
+	return stats
+}
