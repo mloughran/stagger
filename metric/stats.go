@@ -1,9 +1,12 @@
 package metric
 
-import "time"
+import (
+	"github.com/pusher/stagger/conn"
+	"time"
+)
 
-type DistMap map[StatKey]*Dist
-type CounterMap map[StatKey]float64
+type DistMap map[conn.StatKey]*Dist
+type CounterMap map[conn.StatKey]float64
 
 // The object that collects all the stats emitted by clients
 type TimestampedStats struct {
@@ -17,12 +20,12 @@ func NewTimestampedStats(t time.Time) *TimestampedStats {
 	return &TimestampedStats{t, DistMap{}, CounterMap{}, true}
 }
 
-func (self TimestampedStats) AddCount(s StatCount) {
+func (self TimestampedStats) AddCount(s conn.StatCount) {
 	self.Empty = false
 	self.Counters[s.Key()] += s.Count
 }
 
-func (self TimestampedStats) AddValue(s StatValue) {
+func (self TimestampedStats) AddValue(s conn.StatValue) {
 	self.Empty = false
 	if d, ok := self.Dists[s.Key()]; ok {
 		d.AddEntry(s.Value)
@@ -31,7 +34,7 @@ func (self TimestampedStats) AddValue(s StatValue) {
 	}
 }
 
-func (self TimestampedStats) AddDist(s StatDist) {
+func (self TimestampedStats) AddDist(s conn.StatDist) {
 	self.Empty = false
 	dist := ContstructDist(s.Dist)
 	if d, ok := self.Dists[s.Key()]; ok {
@@ -39,39 +42,4 @@ func (self TimestampedStats) AddDist(s StatDist) {
 	} else {
 		self.Dists[s.Key()] = dist
 	}
-}
-
-type Stats struct {
-	Timestamp int64
-	Values    []StatValue
-	Counts    []StatCount
-	Dists     []StatDist
-}
-
-// TODO: Needs weight
-type StatValue struct {
-	Name  string
-	Value float64
-}
-
-func (self StatValue) Key() StatKey {
-	return StatKey(self.Name)
-}
-
-type StatCount struct {
-	Name  string
-	Count float64
-}
-
-func (self StatCount) Key() StatKey {
-	return StatKey(self.Name)
-}
-
-type StatDist struct {
-	Name string
-	Dist [5]float64
-}
-
-func (self StatDist) Key() StatKey {
-	return StatKey(self.Name)
 }

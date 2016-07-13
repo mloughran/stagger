@@ -5,41 +5,18 @@ import (
 	"encoding/binary"
 	"fmt"
 	"github.com/pusher/stagger/conn"
+	codec "github.com/ugorji/go/codec"
 	"io"
 )
 
 type Encoding struct{}
 
-type method byte
-
 var (
-	MAGIC_HEADER = []byte{MAGIC_BYTE1, MAGIC_BYTE2, MAGIC_VERSION}
-	method2str   map[method]string
-	str2method   map[string]method
+	MAGIC_HEADER   = []byte{MAGIC_BYTE1, MAGIC_BYTE2, MAGIC_VERSION}
+	msgpack_handle codec.MsgpackHandle
 )
 
-func init() {
-	x := []struct {
-		m method
-		s string
-	}{
-		{PAIR_PING, "pair:ping"},
-		{PAIR_PONG, "pair:pong"},
-		{REPORT_ALL, "report_all"},
-		{REGISTER_PROCESS, "register_process"},
-		{STATS_PARTIAL, "stats_partial"},
-		{STATS_COMPLETE, "stats_complete"},
-	}
-
-	method2str = make(map[method]string)
-	str2method = make(map[string]method)
-	for _, kv := range x {
-		method2str[kv.m] = kv.s
-		str2method[kv.s] = kv.m
-	}
-}
-
-func (p Encoding) ReadMessage(r io.Reader) (msg conn.Message, err error) {
+func (e Encoding) ReadMessage(r io.Reader) (msg conn.Message, err error) {
 	head := make([]byte, 8)
 	if _, err = r.Read(head); err != nil {
 		return
@@ -50,16 +27,44 @@ func (p Encoding) ReadMessage(r io.Reader) (msg conn.Message, err error) {
 		return
 	}
 
-	m, ok := method2str[method(head[3])]
-	if !ok {
-		err = fmt.Errorf("Unknown method %v", head[3])
+	bodySize := binary.BigEndian.Uint32(head[4:])
+	params := make([]byte, bodySize)
+	if _, err = r.Read(params); err != nil {
 		return
 	}
-	msg = conn.Message{m, nil}
 
-	bodySize := binary.BigEndian.Uint32(head[4:])
-	msg.Params = make([]byte, bodySize)
-	_, err = r.Read(msg.Params)
+	switch head[3] {
+	case PAIR_PING:
+		msg = &conn.PairPing{}
+	case PAIR_PONG:
+		msg = &conn.PairPong{}
+	case REPORT_ALL:
+		var rep conn.ReportAll
+		if err = unmarshal(params, &rep); err != nil {
+			return
+		}
+		msg = &rep
+	case REGISTER_PROCESS:
+		var reg conn.RegisterProcess
+		if err = unmarshal(params, &reg); err != nil {
+			return
+		}
+		msg = &reg
+	case STATS_PARTIAL:
+		var stats conn.Stats
+		if err = unmarshal(params, &stats); err != nil {
+			return
+		}
+		msg = &conn.StatsPartial{Stats: stats}
+	case STATS_COMPLETE:
+		var stats conn.Stats
+		if err = unmarshal(params, &stats); err != nil {
+			return
+		}
+		msg = &conn.StatsComplete{Stats: stats}
+	default:
+		err = fmt.Errorf("Unknown method %v", head[3])
+	}
 
 	return
 }
@@ -69,22 +74,61 @@ func (p Encoding) WriteMessage(w io.Writer, msg conn.Message) (err error) {
 	head[0] = MAGIC_BYTE1
 	head[1] = MAGIC_BYTE2
 	head[2] = MAGIC_VERSION
-	if method, ok := str2method[msg.Method]; ok {
-		head[3] = byte(method)
-	} else {
-		return fmt.Errorf("No mapping for method %s", msg.Method)
+
+	var method byte
+	var params []byte
+
+	switch m := msg.(type) {
+	case conn.PairPing:
+		method = PAIR_PING
+	case conn.PairPong:
+		method = PAIR_PONG
+	case conn.ReportAll:
+		method = REPORT_ALL
+		if params, err = marshal(m); err != nil {
+			return
+		}
+	case conn.RegisterProcess:
+		method = REGISTER_PROCESS
+		if params, err = marshal(m); err != nil {
+			return
+		}
+	case conn.StatsPartial:
+		method = STATS_PARTIAL
+		if params, err = marshal(m.Stats); err != nil {
+			return
+		}
+	case conn.StatsComplete:
+		method = STATS_COMPLETE
+		if params, err = marshal(m.Stats); err != nil {
+			return
+		}
+	default:
+		return fmt.Errorf("Unknown message type %v", msg)
 	}
 
-	binary.BigEndian.PutUint32(head[4:], uint32(len(msg.Params)))
+	head[3] = method
+	binary.BigEndian.PutUint32(head[4:], uint32(len(params)))
 	if _, err = w.Write(head); err != nil {
 		return
 	}
-
-	_, err = w.Write(msg.Params)
+	_, err = w.Write(params)
 
 	return
 }
 
 func (p Encoding) String() string {
 	return "V2"
+}
+
+func unmarshal(data []byte, v interface{}) (err error) {
+	dec := codec.NewDecoderBytes(data, &msgpack_handle)
+	err = dec.Decode(&v)
+	return
+}
+
+func marshal(v interface{}) (b []byte, err error) {
+	enc := codec.NewEncoderBytes(&b, &msgpack_handle)
+	err = enc.Encode(v)
+	return
 }

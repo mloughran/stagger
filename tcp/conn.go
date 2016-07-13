@@ -34,9 +34,9 @@ func (c *Conn) String() string {
 }
 
 // Send sends a message to the Connection
-func (c *Conn) Send(method string, params []byte) error {
+func (c *Conn) Send(msg conn.Message) error {
 	select {
-	case c.sendMessage <- conn.Message{method, params}:
+	case c.sendMessage <- msg:
 		return nil
 	default:
 		return QUEUE_FULL
@@ -106,15 +106,15 @@ func (c *Conn) Run() {
 				return
 			}
 
-			switch msg.Method {
-			case "pair:ping":
+			switch msg.Message.(type) {
+			case *conn.PairPing:
 				debug.Print("[tcp-conn] Received ping, sending pong")
-				send(conn.Message{"pair:pong", []byte{}})
-			case "pair:pong":
+				send(conn.PairPong{})
+			case *conn.PairPong:
 				debug.Print("[tcp-conn] Received pong")
 				// Do nothing
 			default:
-				debug.Printf("[tcp-conn] Received message %v", msg.Method)
+				debug.Printf("[tcp-conn] Received message %v", msg)
 				c.onMethod <- msg.Message
 			}
 		}

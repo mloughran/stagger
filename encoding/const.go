@@ -5,12 +5,12 @@ package encoding
 // see ../docs/ENCODING.md
 
 const (
-	PAIR_PING        = method(0x28) // Both
-	PAIR_PONG        = method(0x29) // Both
-	REPORT_ALL       = method(0x30) // Server -> Client
-	REGISTER_PROCESS = method(0x41) // Client -> Server
-	STATS_PARTIAL    = method(0x42) // Client -> Server
-	STATS_COMPLETE   = method(0x43) // Client -> Server
+	PAIR_PING        = byte(0x28) // Both
+	PAIR_PONG        = byte(0x29) // Both
+	REPORT_ALL       = byte(0x30) // Server -> Client
+	REGISTER_PROCESS = byte(0x41) // Client -> Server
+	STATS_PARTIAL    = byte(0x42) // Client -> Server
+	STATS_COMPLETE   = byte(0x43) // Client -> Server
 )
 
 const (

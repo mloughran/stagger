@@ -8,6 +8,7 @@
 package main
 
 import (
+	"github.com/pusher/stagger/conn"
 	"github.com/pusher/stagger/metric"
 	"time"
 )
@@ -17,13 +18,13 @@ type Count float64
 type Aggregator struct {
 	output  chan (*metric.TimestampedStats)
 	current *metric.TimestampedStats
-	Stats   chan (*metric.Stats)
+	Stats   chan (*conn.Stats)
 }
 
 func NewAggregator() *Aggregator {
 	return &Aggregator{
 		output: make(chan *metric.TimestampedStats),
-		Stats:  make(chan *metric.Stats),
+		Stats:  make(chan *conn.Stats),
 	}
 }
 
@@ -47,7 +48,7 @@ func (self *Aggregator) newInterval(t time.Time) {
 	self.current = metric.NewTimestampedStats(t)
 }
 
-func (self *Aggregator) feed(stats *metric.Stats) {
+func (self *Aggregator) feed(stats *conn.Stats) {
 	var currentTs *time.Time
 	if self.current != nil {
 		currentTs = &self.current.Timestamp
@@ -89,15 +90,15 @@ func (self *Aggregator) report(t time.Time) {
 
 // TODO: Not sure about these functions
 func (self *Aggregator) Count(ts int64, name string, value Count) {
-	self.Stats <- &metric.Stats{
+	self.Stats <- &conn.Stats{
 		Timestamp: ts,
-		Counts:    []metric.StatCount{metric.StatCount{name, float64(value)}},
+		Counts:    []conn.StatCount{conn.StatCount{name, float64(value)}},
 	}
 }
 
 func (self *Aggregator) Value(ts int64, name string, value float64) {
-	self.Stats <- &metric.Stats{
+	self.Stats <- &conn.Stats{
 		Timestamp: ts,
-		Values:    []metric.StatValue{metric.StatValue{name, value}},
+		Values:    []conn.StatValue{conn.StatValue{name, value}},
 	}
 }
