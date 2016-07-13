@@ -8,7 +8,8 @@ import (
 
 func TestMirror(t *testing.T) {
 	b := new(bytes.Buffer)
-	err := (Encoding{}).WriteMessage(b, conn.Message{"report_all", []byte{10}})
+	when := int64(1337)
+	err := (Encoding{}).WriteMessage(b, conn.ReportAll{when})
 	if err != nil {
 		t.Error("encode error", err)
 	}
@@ -18,15 +19,12 @@ func TestMirror(t *testing.T) {
 		t.Error("decode error", err)
 	}
 
-	if msg.Method != "report_all" {
-		t.Error("bad method", msg.Method)
-	}
-
-	if msg.Method != "report_all" {
-		t.Error("bad method", msg.Method)
-	}
-
-	if bytes.Compare(msg.Params, []byte{10}) != 0 {
-		t.Error("bad params", msg.Params)
+	switch m := msg.(type) {
+	case *conn.ReportAll:
+		if m.Timestamp != when {
+			t.Error("bad timestamp", m.Timestamp)
+		}
+	default:
+		t.Error("bad method", msg)
 	}
 }
