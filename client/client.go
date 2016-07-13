@@ -4,6 +4,7 @@ import (
 	"github.com/pusher/stagger/conn"
 	"github.com/pusher/stagger/encoding"
 	"github.com/pusher/stagger/metric"
+	"log"
 	"net"
 	"os"
 	"strconv"
@@ -46,7 +47,60 @@ type (
 		cumulativeCounts cumulativeCounts
 		distributions    distributions
 	}
+
+	Logger interface {
+		// Log an error and a description.
+		Error(string, error)
+	}
 )
+
+// DefaultLogger implements the Logger interface using the "log"
+// library.
+type DefaultLogger struct {
+	Log *log.Logger
+}
+
+func (d *DefaultLogger) Error(desc string, err error) {
+	d.Log.Printf("%s: %s", desc, err.Error())
+}
+
+// Stagger executes the stagger client, reconnecting on error. It
+// sends a RegisterProcess message with tags "cmd"=os.Args[0],
+// "pid"=strconv.Itoa(os.Getpid()).
+//
+// If the first connection attempt fails, this terminates with the
+// error. This is to prevent an infinite loop in the situation where
+// the connection address is wrong.
+//
+// If an error occurs after starting, and the connection needs to be
+// re-established, the error is logged.
+func Stagger(addr string, logger Logger) error {
+	c, err := Dial(addr)
+
+	if err != nil {
+		return err
+	}
+
+	for {
+		// Run the client until it terminates.
+		err = c.Run()
+		logger.Error("lost connection", err)
+
+		// Loop until reconnection is successful.
+		for {
+			c, err = Dial(addr)
+			if err == nil {
+				break
+			}
+
+			logger.Error("failed to reconnect", err)
+
+			// Avoid eating CPU if there is some sort of
+			// network error.
+			time.Sleep(time.Second)
+		}
+	}
+}
 
 // Dial connects to Stagger and send a RegisterProcess message with
 // tags "cmd"=os.Args[0], "pid"=strconv.Itoa(os.Getpid()).
