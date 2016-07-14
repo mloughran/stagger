@@ -193,7 +193,7 @@ func (c *Client) ReportRateCounter(k conn.StatKey, v float64) {
 
 // ReportRateCounters reports a collection of rate counter values.
 // Like 'ReportCounts', this is atomic.
-func (c *Client) ReportRateCounterss(counters map[conn.StatKey]float64) {
+func (c *Client) ReportRateCounters(counters map[conn.StatKey]float64) {
 	c.rateCounters.lock()
 	for k, v := range counters {
 		c.rateCounters.unsafeReport(k, v)
