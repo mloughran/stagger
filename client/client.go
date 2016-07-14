@@ -8,8 +8,8 @@
 //
 //   * Counts, a simple numeric value.
 //
-//   * Cumulative Counts, a variant on Count for values which are
-//     monotonically increasing. When statistics are requested by the
+//   * Rate Counterss, a variant on Count for values which are
+//     changing monotonically. When statistics are requested by the
 //     server, the difference between the current and prior values is
 //     sent, rather than just the current value.
 //
@@ -50,13 +50,13 @@ type (
 		mutex   sync.Mutex
 	}
 
-	cumulativeCounts struct {
-		metrics map[conn.StatKey]cumulativeCount
+	rateCounters struct {
+		metrics map[conn.StatKey]rateCounter
 		mutex   sync.Mutex
 	}
 
 	// Like a counter, but (current - prior) is reported.
-	cumulativeCount struct {
+	rateCounter struct {
 		current float64
 		prior   float64
 	}
@@ -69,10 +69,10 @@ type (
 	Client struct {
 		conn conn.Conn
 
-		callbacks        callbacks
-		counts           counts
-		cumulativeCounts cumulativeCounts
-		distributions    distributions
+		callbacks     callbacks
+		counts        counts
+		rateCounters  rateCounters
+		distributions distributions
 	}
 
 	Logger interface {
@@ -192,24 +192,24 @@ func (c *Client) ReportCounts(counters map[conn.StatKey]float64) {
 	c.counts.unlock()
 }
 
-// ReportCumulativeCount reports the current value of a cumulative
-// counter. When statistics are reported, the value reported for a
-// cumulative counter is (current - prior), to allow reporting metrics
-// which increase over time.
-func (c *Client) ReportCumulativeCount(k conn.StatKey, v float64) {
-	c.cumulativeCounts.lock()
-	c.cumulativeCounts.unsafeReport(k, v)
-	c.cumulativeCounts.unlock()
+// ReportRateCounter reports the current value of a rate counter. When
+// statistics are sent to the server, the value reported is (current -
+// prior), to allow reporting metrics which change monotonically over
+// time.
+func (c *Client) ReportRateCounter(k conn.StatKey, v float64) {
+	c.rateCounters.lock()
+	c.rateCounters.unsafeReport(k, v)
+	c.rateCounters.unlock()
 }
 
-// ReportCumulativeCounts reports a collection of cumulative counter
-// values. Like 'ReportCounts', this is atomic.
-func (c *Client) ReportCumulativeCounts(counters map[conn.StatKey]float64) {
-	c.cumulativeCounts.lock()
+// ReportRateCounters reports a collection of rate counter values.
+// Like 'ReportCounts', this is atomic.
+func (c *Client) ReportRateCounterss(counters map[conn.StatKey]float64) {
+	c.rateCounters.lock()
 	for k, v := range counters {
-		c.cumulativeCounts.unsafeReport(k, v)
+		c.rateCounters.unsafeReport(k, v)
 	}
-	c.cumulativeCounts.unlock()
+	c.rateCounters.unlock()
 }
 
 // ReportDistribution adds a measurement to a distribution. If the
@@ -287,24 +287,24 @@ func (cs *counts) unsafeReport(k conn.StatKey, v float64) {
 	cs.metrics[k] = v
 }
 
-func (cs *cumulativeCounts) lock() {
-	cs.mutex.Lock()
+func (rs *rateCounters) lock() {
+	rs.mutex.Lock()
 }
 
-func (cs *cumulativeCounts) unlock() {
-	cs.mutex.Unlock()
+func (rs *rateCounters) unlock() {
+	rs.mutex.Unlock()
 }
 
 // Not safe for concurrent use!
-func (cs *cumulativeCounts) unsafeReport(k conn.StatKey, v float64) {
-	c, ok := cs.metrics[k]
+func (rs *rateCounters) unsafeReport(k conn.StatKey, v float64) {
+	r, ok := rs.metrics[k]
 
 	if ok {
-		c.prior = c.current
+		r.prior = r.current
 	}
 
-	c.current = v
-	cs.metrics[k] = c
+	r.current = v
+	rs.metrics[k] = r
 }
 
 func (ds *distributions) lock() {
@@ -333,23 +333,23 @@ func (c *Client) report() conn.Stats {
 	// Prevent concurrent modification of the stats as we report.
 	c.callbacks.lock()
 	c.counts.lock()
-	c.cumulativeCounts.lock()
+	c.rateCounters.lock()
 	c.distributions.lock()
 	defer c.callbacks.unlock()
 	defer c.counts.unlock()
-	defer c.cumulativeCounts.unlock()
+	defer c.rateCounters.unlock()
 	defer c.distributions.unlock()
 
 	var (
-		numCallbacks = len(c.callbacks.metrics)
-		numCounts    = len(c.counts.metrics)
-		numCumcounts = len(c.cumulativeCounts.metrics)
-		numDists     = len(c.distributions.metrics)
+		numCallbacks  = len(c.callbacks.metrics)
+		numCounts     = len(c.counts.metrics)
+		numRateCounts = len(c.rateCounters.metrics)
+		numDists      = len(c.distributions.metrics)
 	)
 
 	stats := conn.Stats{
 		Timestamp: time.Now().Unix(),
-		Counts:    make([]conn.StatCount, numCallbacks+numCounts+numCumcounts, numCallbacks+numCounts+numCumcounts),
+		Counts:    make([]conn.StatCount, numCallbacks+numCounts+numRateCounts, numCallbacks+numCounts+numRateCounts),
 		Dists:     make([]conn.StatDist, numDists, numDists),
 	}
 
@@ -364,7 +364,7 @@ func (c *Client) report() conn.Stats {
 		i++
 	}
 
-	for k, v := range c.cumulativeCounts.metrics {
+	for k, v := range c.rateCounters.metrics {
 		stats.Counts[i] = conn.StatCount{Name: k.String(), Count: v.current - v.prior}
 		i++
 	}

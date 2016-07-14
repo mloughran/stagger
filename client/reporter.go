@@ -29,23 +29,23 @@ func (r *CountReporter) Report(v float64) {
 	r.client.ReportCount(r.metric, v)
 }
 
-// A CumulativeCountReporter tracks the current value of a Cumulative
-// Count metric.
-type CumulativeCountReporter struct {
+// A RateCounterReporter tracks the current value of a Rate Counter
+// metric.
+type RateCounterReporter struct {
 	client *Client
 	metric conn.StatKey
 }
 
-func (c *Client) NewCumulativeCountReporter(metric conn.StatKey) CumulativeCountReporter {
-	return CumulativeCountReporter{c, metric}
+func (c *Client) NewRateCounterReporter(metric conn.StatKey) RateCounterReporter {
+	return RateCounterReporter{c, metric}
 }
 
-func (r *CumulativeCountReporter) Metric() conn.StatKey {
+func (r *RateCounterReporter) Metric() conn.StatKey {
 	return r.metric
 }
 
-func (r *CumulativeCountReporter) Report(v float64) {
-	r.client.ReportCumulativeCount(r.metric, v)
+func (r *RateCounterReporter) Report(v float64) {
+	r.client.ReportRateCounter(r.metric, v)
 }
 
 // A DistributionReporter tracks the current value of a Distribution
