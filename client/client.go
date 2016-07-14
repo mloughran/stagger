@@ -31,7 +31,6 @@ import (
 	"github.com/pusher/stagger/conn"
 	"github.com/pusher/stagger/encoding"
 	"github.com/pusher/stagger/metric"
-	"log"
 	"net"
 	"os"
 	"strconv"
@@ -76,20 +75,10 @@ type (
 	}
 
 	Logger interface {
-		// Log an error and a description.
-		Error(string, error)
+		// Log an error.
+		Printf(string, ...interface{})
 	}
 )
-
-// DefaultLogger implements the Logger interface using the "log"
-// library.
-type DefaultLogger struct {
-	Log *log.Logger
-}
-
-func (d *DefaultLogger) Error(desc string, err error) {
-	d.Log.Printf("%s: %s", desc, err.Error())
-}
 
 // Stagger executes the stagger client, reconnecting on error. It
 // sends a RegisterProcess message with tags "cmd"=os.Args[0],
@@ -111,7 +100,7 @@ func Stagger(addr string, logger Logger) error {
 	for {
 		// Run the client until it terminates.
 		err = c.Run()
-		logger.Error("lost connection", err)
+		logger.Printf("Lost connection to Stagger: %s", err.Error())
 
 		// Loop until reconnection is successful.
 		for {
@@ -120,7 +109,7 @@ func Stagger(addr string, logger Logger) error {
 				break
 			}
 
-			logger.Error("failed to reconnect", err)
+			logger.Printf("Failed to reconnect to Stagger: %s", err.Error())
 
 			// Avoid eating CPU if there is some sort of
 			// network error.
