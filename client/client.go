@@ -170,6 +170,16 @@ func (c *Client) ReportCount(k conn.StatKey, v float64) {
 	c.counts.unlock()
 }
 
+// ReportCountDelta adds the delta to the current value of a counter.
+// If the metric does not exist, it is created with a current value of
+// 0.
+func (c *Client) ReportCountDelta(k conn.StatKey, d float64) {
+	c.counts.lock()
+	v := c.counts.metrics[k]
+	c.counts.unsafeReport(k, v+d)
+	c.counts.unlock()
+}
+
 // ReportCounts reports a collection of counter values. This is
 // atomic: if a ReportAll request arrives as this function executes,
 // the server will not be given a partially-updated state.
@@ -188,6 +198,16 @@ func (c *Client) ReportCounts(counters map[conn.StatKey]float64) {
 func (c *Client) ReportRateCounter(k conn.StatKey, v float64) {
 	c.rateCounters.lock()
 	c.rateCounters.unsafeReport(k, v)
+	c.rateCounters.unlock()
+}
+
+// ReportRateCounterDelta adds the delta to the current value of a
+// rate counter. If the rate counter does not exist, it is created
+// with a current (and prior) value of 0.
+func (c *Client) ReportRateCounterDelta(k conn.StatKey, d float64) {
+	c.rateCounters.lock()
+	v := c.rateCounters.metrics[k]
+	c.rateCounters.unsafeReport(k, v.current+d)
 	c.rateCounters.unlock()
 }
 
