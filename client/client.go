@@ -66,13 +66,15 @@ import (
 
 type (
 	counts struct {
-		metrics map[conn.StatKey]float64
-		mutex   sync.Mutex
+		values    map[conn.StatKey]float64
+		callbacks map[conn.StatKey]func() float64
+		mutex     sync.Mutex
 	}
 
 	rateCounters struct {
-		metrics map[conn.StatKey]rateCounter
-		mutex   sync.Mutex
+		values    map[conn.StatKey]rateCounter
+		callbacks map[conn.StatKey]func() float64
+		mutex     sync.Mutex
 	}
 
 	// Like a counter, but (current - prior) is reported.
@@ -82,25 +84,9 @@ type (
 	}
 
 	distributions struct {
-		metrics map[conn.StatKey]metric.Dist
-		mutex   sync.Mutex
-	}
-
-	countCallbacks struct {
-		metrics map[conn.StatKey]func() float64
-		mutex   sync.Mutex
-	}
-
-	rateCounterCallbacks struct {
-		metrics map[conn.StatKey]func() float64
-		priors  map[conn.StatKey]float64
-		mutex   sync.Mutex
-	}
-
-	distributionCallbacks struct {
-		metrics map[conn.StatKey]func() float64
-		dists   map[conn.StatKey]metric.Dist
-		mutex   sync.Mutex
+		values    map[conn.StatKey]metric.Dist
+		callbacks map[conn.StatKey]func() float64
+		mutex     sync.Mutex
 	}
 
 	Client struct {
@@ -109,10 +95,6 @@ type (
 		counts        counts
 		rateCounters  rateCounters
 		distributions distributions
-
-		countCallbacks        countCallbacks
-		rateCounterCallbacks  rateCounterCallbacks
-		distributionCallbacks distributionCallbacks
 	}
 
 	Logger interface {
@@ -207,7 +189,7 @@ func (c *Client) ReportCount(k conn.StatKey, v float64) {
 // 0.
 func (c *Client) ReportCountDelta(k conn.StatKey, d float64) {
 	c.counts.lock()
-	v := c.counts.metrics[k]
+	v := c.counts.values[k]
 	c.counts.unsafeReport(k, v+d)
 	c.counts.unlock()
 }
@@ -226,9 +208,9 @@ func (c *Client) ReportCounts(counters map[conn.StatKey]float64) {
 // RegisterCountCallback adds a callback which will be used once every
 // reporting period to report the value of a count.
 func (c *Client) RegisterCountCallback(k conn.StatKey, cb func() float64) {
-	c.countCallbacks.lock()
-	c.countCallbacks.unsafeRegister(k, cb)
-	c.countCallbacks.unlock()
+	c.counts.lock()
+	c.counts.unsafeRegister(k, cb)
+	c.counts.unlock()
 }
 
 // ReportRateCounter reports the current value of a rate counter. When
@@ -246,7 +228,7 @@ func (c *Client) ReportRateCounter(k conn.StatKey, v float64) {
 // with a current (and prior) value of 0.
 func (c *Client) ReportRateCounterDelta(k conn.StatKey, d float64) {
 	c.rateCounters.lock()
-	v := c.rateCounters.metrics[k]
+	v := c.rateCounters.values[k]
 	c.rateCounters.unsafeReport(k, v.current+d)
 	c.rateCounters.unlock()
 }
@@ -265,9 +247,9 @@ func (c *Client) ReportRateCounters(counters map[conn.StatKey]float64) {
 // every reporting period to report the current value of a rate
 // counter. The initial prior value is 0.
 func (c *Client) RegisterRateCounterCallback(k conn.StatKey, cb func() float64) {
-	c.rateCounterCallbacks.lock()
-	c.rateCounterCallbacks.unsafeRegister(k, cb)
-	c.rateCounterCallbacks.unlock()
+	c.rateCounters.lock()
+	c.rateCounters.unsafeRegister(k, cb)
+	c.rateCounters.unlock()
 }
 
 // ReportDistribution adds a measurement to a distribution. If the
@@ -329,7 +311,12 @@ func (cs *counts) unlock() {
 
 // Not safe for concurrent use!
 func (cs *counts) unsafeReport(k conn.StatKey, v float64) {
-	cs.metrics[k] = v
+	cs.values[k] = v
+}
+
+// Not safe for concurrent use!
+func (cs *counts) unsafeRegister(k conn.StatKey, cb func() float64) {
+	cs.callbacks[k] = cb
 }
 
 func (rs *rateCounters) lock() {
@@ -342,9 +329,14 @@ func (rs *rateCounters) unlock() {
 
 // Not safe for concurrent use!
 func (rs *rateCounters) unsafeReport(k conn.StatKey, v float64) {
-	r := rs.metrics[k]
+	r := rs.values[k]
 	r.current = v
-	rs.metrics[k] = r
+	rs.values[k] = r
+}
+
+// Not safe for concurrent use!
+func (rs *rateCounters) unsafeRegister(k conn.StatKey, cb func() float64) {
+	rs.callbacks[k] = cb
 }
 
 func (ds *distributions) lock() {
@@ -357,7 +349,7 @@ func (ds *distributions) unlock() {
 
 // Not safe for concurrent use!
 func (ds *distributions) unsafeReport(k conn.StatKey, v float64) {
-	d, ok := ds.metrics[k]
+	d, ok := ds.values[k]
 
 	if ok {
 		d.AddEntry(v)
@@ -365,46 +357,12 @@ func (ds *distributions) unsafeReport(k conn.StatKey, v float64) {
 		d = *metric.NewDistFromValue(v)
 	}
 
-	ds.metrics[k] = d
-}
-
-func (cs *countCallbacks) lock() {
-	cs.mutex.Lock()
-}
-
-func (cs *countCallbacks) unlock() {
-	cs.mutex.Unlock()
+	ds.values[k] = d
 }
 
 // Not safe for concurrent use!
-func (cs *countCallbacks) unsafeRegister(k conn.StatKey, cb func() float64) {
-	cs.metrics[k] = cb
-}
-
-func (rs *rateCounterCallbacks) lock() {
-	rs.mutex.Lock()
-}
-
-func (rs *rateCounterCallbacks) unlock() {
-	rs.mutex.Unlock()
-}
-
-// Not safe for concurrent use!
-func (rs *rateCounterCallbacks) unsafeRegister(k conn.StatKey, cb func() float64) {
-	rs.metrics[k] = cb
-}
-
-func (ds *distributionCallbacks) lock() {
-	ds.mutex.Lock()
-}
-
-func (ds *distributionCallbacks) unlock() {
-	ds.mutex.Unlock()
-}
-
-// Not safe for concurrent use!
-func (ds *distributionCallbacks) unsafeRegister(k conn.StatKey, cb func() float64) {
-	ds.metrics[k] = cb
+func (ds *distributions) unsafeRegister(k conn.StatKey, cb func() float64) {
+	ds.callbacks[k] = cb
 }
 
 // Returns the current statistics, is atomic.
@@ -413,61 +371,22 @@ func (c *Client) report() conn.Stats {
 	c.counts.lock()
 	c.rateCounters.lock()
 	c.distributions.lock()
-	c.countCallbacks.lock()
-	c.rateCounterCallbacks.lock()
-	c.distributionCallbacks.lock()
 	defer c.counts.unlock()
 	defer c.rateCounters.unlock()
 	defer c.distributions.unlock()
-	defer c.countCallbacks.unlock()
-	defer c.rateCounterCallbacks.unlock()
-	defer c.distributionCallbacks.unlock()
 
-	var (
-		numCounts     = len(c.counts.metrics) + len(c.countCallbacks.metrics)
-		numRateCounts = len(c.rateCounters.metrics) + len(c.rateCounterCallbacks.metrics)
-		numDists      = len(c.distributions.metrics) + len(c.distributionCallbacks.metrics)
-	)
-
-	stats := conn.Stats{
-		Timestamp: time.Now().Unix(),
-		Counts:    make([]conn.StatCount, numCounts+numRateCounts, numCounts+numRateCounts),
-		Dists:     make([]conn.StatDist, numDists, numDists),
+	// Run all the callbacks, to populate the values.
+	for k, vf := range c.counts.callbacks {
+		c.counts.values[k] = vf()
 	}
-
-	i := 0
-	for k, v := range c.counts.metrics {
-		stats.Counts[i] = conn.StatCount{Name: k.String(), Count: v}
-		i++
+	for k, vf := range c.rateCounters.callbacks {
+		rateCounter := c.rateCounters.values[k]
+		rateCounter.prior = rateCounter.current
+		rateCounter.current = vf()
 	}
-
-	for k, v := range c.rateCounters.metrics {
-		stats.Counts[i] = conn.StatCount{Name: k.String(), Count: v.current - v.prior}
-		v.prior = v.current
-		i++
-	}
-
-	for k, vf := range c.countCallbacks.metrics {
-		stats.Counts[i] = conn.StatCount{Name: k.String(), Count: vf()}
-		i++
-	}
-
-	for k, vf := range c.rateCounterCallbacks.metrics {
-		current := vf()
-		prior := c.rateCounterCallbacks.priors[k]
-		stats.Counts[i] = conn.StatCount{Name: k.String(), Count: current - prior}
-		c.rateCounterCallbacks.priors[k] = current
-		i++
-	}
-
-	i = 0
-	for k, v := range c.distributions.metrics {
-		stats.Dists[i] = conn.StatDist{Name: k.String(), Dist: [5]float64{v.N, v.Min, v.Max, v.Sum_x, v.Sum_x2}}
-		i++
-	}
-	for k, vf := range c.distributionCallbacks.metrics {
+	for k, vf := range c.distributions.callbacks {
 		value := vf()
-		dist, ok := c.distributionCallbacks.dists[k]
+		dist, ok := c.distributions.values[k]
 
 		if ok {
 			dist.AddEntry(value)
@@ -475,8 +394,37 @@ func (c *Client) report() conn.Stats {
 			dist = *metric.NewDistFromValue(value)
 		}
 
-		stats.Dists[i] = conn.StatDist{Name: k.String(), Dist: [5]float64{dist.N, dist.Min, dist.Max, dist.Sum_x, dist.Sum_x2}}
-		c.distributionCallbacks.dists[k] = dist
+		c.distributions.values[k] = dist
+	}
+
+	// Then construct a conn.Stats struct with all the metric values in.
+	var (
+		numCounts     = len(c.counts.values)
+		numRateCounts = len(c.rateCounters.values)
+		numDists      = len(c.distributions.values)
+	)
+
+	stats := conn.Stats{
+		Timestamp: time.Now().Unix(),
+		Counts:    make([]conn.StatCount, numCounts+numRateCounts),
+		Dists:     make([]conn.StatDist, numDists),
+	}
+
+	i := 0
+	for k, v := range c.counts.values {
+		stats.Counts[i] = conn.StatCount{Name: k.String(), Count: v}
+		i++
+	}
+
+	for k, v := range c.rateCounters.values {
+		stats.Counts[i] = conn.StatCount{Name: k.String(), Count: v.current - v.prior}
+		v.prior = v.current
+		i++
+	}
+
+	i = 0
+	for k, v := range c.distributions.values {
+		stats.Dists[i] = conn.StatDist{Name: k.String(), Dist: [5]float64{v.N, v.Min, v.Max, v.Sum_x, v.Sum_x2}}
 		i++
 	}
 
