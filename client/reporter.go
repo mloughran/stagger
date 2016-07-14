@@ -4,14 +4,14 @@ import "github.com/pusher/stagger/conn"
 
 // A Reporter sends metrics to the stagger client.
 type Reporter interface {
-	// The name of the mertic this reports for.
+	// The name of the metric this reports for.
 	Metric() conn.StatKey
 
 	// Report a value.
 	Report(float64)
 }
 
-// A CountReporter tracks the current value of a counter.
+// A CountReporter tracks the current value of a Count metric.
 type CountReporter struct {
 	client *Client
 	metric conn.StatKey
@@ -29,7 +29,8 @@ func (r *CountReporter) Report(v float64) {
 	r.client.ReportCount(r.metric, v)
 }
 
-// A CumulativeCountReporter tracks the current value of a cumulative counter.
+// A CumulativeCountReporter tracks the current value of a Cumulative
+// Count metric.
 type CumulativeCountReporter struct {
 	client *Client
 	metric conn.StatKey
@@ -47,7 +48,8 @@ func (r *CumulativeCountReporter) Report(v float64) {
 	r.client.ReportCumulativeCount(r.metric, v)
 }
 
-// A DistributionReporter tracks the current value of a distribution.
+// A DistributionReporter tracks the current value of a Distribution
+// metric.
 type DistributionReporter struct {
 	client *Client
 	metric conn.StatKey

@@ -1,3 +1,30 @@
+// Package client implements a Stagger client for Go programs. There
+// are four different types of metric supported:
+//
+//   * Callbacks, which are called once every reporting period to
+//     gather metric values. These are useful for
+//     infrequently-changing or expensive metrics where reporting
+//     every change through a Count metric would be inconvenient.
+//
+//   * Counts, a simple numeric value.
+//
+//   * Cumulative Counts, a variant on Count for values which are
+//     monotonically increasing. When statistics are requested by the
+//     server, the difference between the current and prior values is
+//     sent, rather than just the current value.
+//
+//   * Distributions, a simple numeric value, sent to the server as
+//     the number of values reported, the min, the max, the sum, and
+//     the sum-of-squares.
+//
+// Reporting is atomic, the server is never sent a partially-updated
+// state.
+//
+// For Counts, Cumulative Counts, and Distributions, "Reporter" values
+// are available, which can be used to report new values without
+// needing to keep track of the metric name. These may be useful for
+// creating a collection of reporters in one place and then passing
+// them around to other functions.
 package client
 
 import (
@@ -175,10 +202,8 @@ func (c *Client) ReportCumulativeCount(k conn.StatKey, v float64) {
 	c.cumulativeCounts.unlock()
 }
 
-// ReportCumulativeCounts reports a collection of cumulativecounter
-// values. This is atomic: if a ReportAll request arrives as this
-// function executes, the server will not be given a partially-updated
-// state.
+// ReportCumulativeCounts reports a collection of cumulative counter
+// values. Like 'ReportCounts', this is atomic.
 func (c *Client) ReportCumulativeCounts(counters map[conn.StatKey]float64) {
 	c.cumulativeCounts.lock()
 	for k, v := range counters {
@@ -208,8 +233,8 @@ func (c *Client) ReportDistributions(distributions map[conn.StatKey][]float64) {
 	c.distributions.unlock()
 }
 
-// Run executes the Stagger client. Run forever responding to pings
-// and requests for reports. This closes the connection on error.
+// Run executes the Stagger client, responding to pings and requests
+// for reports. This closes the connection on error.
 func (c *Client) Run() error {
 	defer c.conn.Close()
 
