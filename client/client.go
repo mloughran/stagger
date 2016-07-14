@@ -90,7 +90,9 @@ type (
 	}
 
 	Client struct {
+		addr string
 		conn conn.Conn
+		tags map[string]string
 
 		counts        counts
 		rateCounters  rateCounters
@@ -103,78 +105,37 @@ type (
 	}
 )
 
-// Stagger executes the stagger client, reconnecting on error. It
-// sends a RegisterProcess message with tags "cmd"=os.Args[0],
-// "pid"=strconv.Itoa(os.Getpid()).
-//
-// If the first connection attempt fails, this terminates with the
-// error. This is to prevent an infinite loop in the situation where
-// the connection address is wrong.
-//
-// If an error occurs after starting, and the connection needs to be
-// re-established, the error is logged.
-func Stagger(addr string, logger Logger) error {
-	c, err := Dial(addr)
-
-	if err != nil {
-		return err
-	}
-
-	for {
-		// Run the client until it terminates.
-		err = c.Run()
-		logger.Printf("Lost connection to Stagger: %s", err.Error())
-
-		// Loop until reconnection is successful.
-		for {
-			c, err = Dial(addr)
-			if err == nil {
-				break
-			}
-
-			logger.Printf("Failed to reconnect to Stagger: %s", err.Error())
-
-			// Avoid eating CPU if there is some sort of
-			// network error.
-			time.Sleep(time.Second)
-		}
-	}
-}
-
 // Dial connects to Stagger and send a RegisterProcess message with
-// tags "cmd"=os.Args[0], "pid"=strconv.Itoa(os.Getpid()).
-func Dial(addr string) (*Client, error) {
-	c, err := DialNoRegister(addr)
-	if err != nil {
-		return nil, err
-	}
-
-	args := map[string]string{
-		"cmd": os.Args[0],
-		"pid": strconv.Itoa(os.Getpid()),
-	}
-	c.RegisterProcess(args)
-
-	return c, nil
-}
-
-// DialNoRegister connects to Stagger, but does not send the
-// RegisterProcess message. You will need to call
-// 'Client.RegisterProcess' yourself.
-func DialNoRegister(addr string) (*Client, error) {
+// the supplied tags. If the tags are nil, then the defaults are used:
+//
+//   map[string]string{
+//       "cmd": os.Args[0],
+//       "pid": strconv.Itoa(os.Getpid()),
+//   }
+func Dial(addr string, tags map[string]string) (*Client, error) {
 	c1, err := net.DialTimeout("tcp", addr, 5*time.Second)
 	if err != nil {
 		return nil, err
 	}
 
-	c := Client{conn: conn.NewConn(c1, encoding.Encoding{})}
+	if tags == nil {
+		tags = map[string]string{
+			"cmd": os.Args[0],
+			"pid": strconv.Itoa(os.Getpid()),
+		}
+	}
+
+	c := Client{
+		addr: addr,
+		conn: conn.NewConn(c1, encoding.Encoding{}),
+		tags: tags,
+	}
+
+	if err := c.conn.WriteMessage(conn.RegisterProcess{Tags: tags}); err != nil {
+		return nil, err
+	}
 
 	return &c, nil
-}
-
-// RegisterProcess identifies the client to the server.
-func (c *Client) RegisterProcess(tags map[string]string) error {
-	return c.conn.WriteMessage(conn.RegisterProcess{Tags: tags})
 }
 
 // ReportCount reports the current value of a counter.
@@ -273,28 +234,23 @@ func (c *Client) ReportDistributions(distributions map[conn.StatKey][]float64) {
 	c.distributions.unlock()
 }
 
-// Run executes the Stagger client, responding to pings and requests
-// for reports. This closes the connection on error.
-func (c *Client) Run() error {
-	defer c.conn.Close()
-
+// Run executes the stagger client, reconnecting on error. Any errors
+// are given to the provided logger.
+func (c *Client) Run(logger Logger) error {
 	for {
-		msg, err := c.conn.ReadMessage()
+		// Run the client until it terminates.
+		err := c.runOnce()
+		logger.Printf("Lost connection to Stagger: %s", err.Error())
+
+		// Loop until reconnection is successful.
+	reconnect:
+		time.Sleep(time.Second)
+
+		c2, err := Dial(c.addr, c.tags)
+		c.conn = c2.conn
 		if err != nil {
-			return err
-		}
-
-		switch msg.(type) {
-		case *conn.PairPing:
-			if err := c.conn.WriteMessage(conn.PairPong{}); err != nil {
-				return err
-			}
-		case *conn.ReportAll:
-			stats := c.report()
-
-			if err := c.conn.WriteMessage(conn.StatsComplete{Stats: stats}); err != nil {
-				return err
-			}
+			logger.Printf("Failed to reconnect to Stagger: %s", err.Error())
+			goto reconnect
 		}
 	}
 }
@@ -429,4 +385,30 @@ func (c *Client) report() conn.Stats {
 	}
 
 	return stats
+}
+
+// Execute the Stagger client, responding to pings and requests for
+// reports. This closes the connection on error.
+func (c *Client) runOnce() error {
+	defer c.conn.Close()
+
+	for {
+		msg, err := c.conn.ReadMessage()
+		if err != nil {
+			return err
+		}
+
+		switch msg.(type) {
+		case *conn.PairPing:
+			if err := c.conn.WriteMessage(conn.PairPong{}); err != nil {
+				return err
+			}
+		case *conn.ReportAll:
+			stats := c.report()
+
+			if err := c.conn.WriteMessage(conn.StatsComplete{Stats: stats}); err != nil {
+				return err
+			}
+		}
+	}
 }
