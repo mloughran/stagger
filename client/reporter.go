@@ -29,6 +29,11 @@ func (r *CountReporter) Report(v float64) {
 	r.client.ReportCount(r.metric, v)
 }
 
+// ReportDelta adds the delta to the current value.
+func (r *CountReporter) ReportDelta(d float64) {
+	r.client.ReportCountDelta(r.metric, d)
+}
+
 // A RateCounterReporter tracks the current value of a Rate Counter
 // metric.
 type RateCounterReporter struct {
@@ -46,6 +51,11 @@ func (r *RateCounterReporter) Metric() conn.StatKey {
 
 func (r *RateCounterReporter) Report(v float64) {
 	r.client.ReportRateCounter(r.metric, v)
+}
+
+// ReportDelta adds the delta to the current value.
+func (r *RateCounterReporter) ReportDelta(d float64) {
+	r.client.ReportRateCounterDelta(r.metric, d)
 }
 
 // A DistributionReporter tracks the current value of a Distribution
