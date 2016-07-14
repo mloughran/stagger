@@ -8,7 +8,7 @@
 //
 //   * Counts, a simple numeric value.
 //
-//   * Rate Counterss, a variant on Count for values which are
+//   * Rate Counters, a variant on Count for values which are
 //     changing monotonically. When statistics are requested by the
 //     server, the difference between the current and prior values is
 //     sent, rather than just the current value.
@@ -20,11 +20,33 @@
 // Reporting is atomic, the server is never sent a partially-updated
 // state.
 //
-// For Counts, Cumulative Counts, and Distributions, "Reporter" values
-// are available, which can be used to report new values without
-// needing to keep track of the metric name. These may be useful for
-// creating a collection of reporters in one place and then passing
-// them around to other functions.
+// For Counts, Rate Counters, and Distributions, "Reporter" values are
+// available, which can be used to report new values without needing
+// to keep track of the metric name. These may be useful for creating
+// a collection of reporters in one place and then passing them around
+// to other functions.
+//
+// For Counts and Rate Counters, functions are available to report
+// deltas, rather than absolute values.
+//
+// Here are some example metrics, and the type of Stagger metric most
+// suitable:
+//
+//   * Allocated memory: a callback (using runtime.ReadMemStats), as
+//     reporting this on every allocation would add a lot of noise to
+//     the rest of the code.
+//
+//   * Number of connected network clients: a count, either reporting
+//     the total number of connected clients (if that information is
+//     readily available), or a delta of +1 on connect and -1 on
+//     disconnect.
+//
+//   * Change in number of connected network clients every second: a
+//     rate counter, with exactly the same reporting as the number of
+//     connected network clients.
+//
+//   * Time some operation takes: a distribution, reporting the
+//     duration of each operation as a new entry.
 package client
 
 import (
