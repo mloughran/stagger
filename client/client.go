@@ -286,12 +286,7 @@ func (rs *rateCounters) unlock() {
 
 // Not safe for concurrent use!
 func (rs *rateCounters) unsafeReport(k conn.StatKey, v float64) {
-	r, ok := rs.metrics[k]
-
-	if ok {
-		r.prior = r.current
-	}
-
+	r := rs.metrics[k]
 	r.current = v
 	rs.metrics[k] = r
 }
@@ -355,6 +350,7 @@ func (c *Client) report() conn.Stats {
 
 	for k, v := range c.rateCounters.metrics {
 		stats.Counts[i] = conn.StatCount{Name: k.String(), Count: v.current - v.prior}
+		v.prior = v.current
 		i++
 	}
 
