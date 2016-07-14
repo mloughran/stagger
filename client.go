@@ -3,35 +3,26 @@ package main
 import (
 	"fmt"
 	"github.com/pusher/stagger/conn"
-	"github.com/pusher/stagger/metric"
+	"github.com/pusher/stagger/tcp"
 
 	"strings"
 )
 
-type RegisterProcess struct {
-	Tags map[string]string
-}
-
-type message struct {
-	Method string
-	Params map[string]interface{}
-}
-
 type Client struct {
 	id       int64
-	conn     conn.Connection
+	conn     tcp.Connection
 	name     string
-	sendc    chan (message)
-	statsc   chan<- (*metric.Stats)
+	sendc    chan conn.Message
+	statsc   chan<- (*conn.Stats)
 	complete chan<- (CompleteMessage)
 }
 
-func NewClient(id int64, c conn.Connection, statsc chan<- (*metric.Stats), complete chan<- (CompleteMessage), clientClosed chan<- conn.Client) *Client {
+func NewClient(id int64, c tcp.Connection, statsc chan<- (*conn.Stats), complete chan<- (CompleteMessage), clientClosed chan<- tcp.Client) *Client {
 	client := &Client{
 		id,
 		c,
 		"",
-		make(chan message, 2),
+		make(chan conn.Message, 2),
 		statsc,
 		complete,
 	}
@@ -48,67 +39,40 @@ func (c *Client) String() string {
 	return c.name
 }
 
-func (c *Client) Send(m string, p map[string]interface{}) {
-	c.sendc <- message{m, p}
+func (c *Client) Send(msg conn.Message) {
+	c.sendc <- msg
 }
 
 func (c *Client) RequestStats(ts int64) {
 	// TODO: Make Timestamp lowercase
-	c.Send("report_all", map[string]interface{}{"Timestamp": ts})
+	c.Send(conn.ReportAll{Timestamp: ts})
 }
 
 func (c *Client) Shutdown() {
 	c.conn.Shutdown()
 }
 
-func (c *Client) run(clientDidClose chan<- conn.Client) {
-	handleStats := func(data []byte) (ts int64, err error) {
-		var stats metric.Stats
-		if err = unmarshal(data, &stats); err == nil {
-			ts = stats.Timestamp
-			c.statsc <- &stats
-		} else {
-			info.Printf("%s Error decoding msgpack data: %v", c, data)
-		}
-		return
-	}
-
+func (c *Client) run(clientDidClose chan<- tcp.Client) {
 	var ts int64
-	var err error
 
 	for {
 		select {
 		case message := <-c.sendc:
-			if b, err := marshal(message.Params); err == nil {
-				err = c.conn.Send(message.Method, b)
-				if err != nil {
-					info.Printf("%s Error sending message: %s", c, err)
-				}
-			} else {
-				info.Printf("%s Error encoding as msgpack: %v", c, message.Params)
+			if err := c.conn.Send(message); err != nil {
+				info.Printf("%s Error sending message: %v", c, err)
 			}
-		case m := <-c.conn.OnMethod():
-			switch m.Method {
-			case "register_process":
-				var reg RegisterProcess
-				if err = unmarshal(m.Params, &reg); err != nil {
-					info.Printf("%s Error registering: %v", c, err)
-				} else {
-					c.setName(reg.Tags)
-					info.Printf("%s Registered", c)
-				}
-			case "stats_partial":
-				if ts, err = handleStats(m.Params); err != nil {
-					info.Printf("%s Error decoding stats_partial: %v", c, err)
-				}
-			case "stats_complete":
-				if ts, err = handleStats(m.Params); err != nil {
-					info.Printf("%s Error decoding stats_complete: %v", c, err)
-				} else {
-					c.complete <- CompleteMessage{c.id, ts}
-				}
+		case message := <-c.conn.OnMethod():
+			switch m := message.(type) {
+			case *conn.RegisterProcess:
+				c.setName(m.Tags)
+				info.Printf("%s Registered", c)
+			case *conn.StatsPartial:
+				c.statsc <- &m.Stats
+			case *conn.StatsComplete:
+				c.statsc <- &m.Stats
+				c.complete <- CompleteMessage{c.id, ts}
 			default:
-				info.Printf("%s Received unknown command %v", c, m.Method)
+				info.Printf("%s Received unknown command %v", c, m)
 			}
 		case <-c.conn.OnClose():
 			clientDidClose <- c

@@ -5,7 +5,7 @@
 package main
 
 import (
-	"github.com/pusher/stagger/conn"
+	"github.com/pusher/stagger/tcp"
 	"time"
 )
 
@@ -16,8 +16,8 @@ type CompleteMessage struct {
 }
 
 type ClientManager struct {
-	addClientC  chan conn.Connection
-	remClient   chan conn.Client
+	addClientC  chan tcp.Connection
+	remClient   chan tcp.Client
 	sigShutdown chan bool
 	didShutdown chan bool
 	onComplete  chan (CompleteMessage)
@@ -27,8 +27,8 @@ type ClientManager struct {
 
 func NewClientManager(a *Aggregator) *ClientManager {
 	return &ClientManager{
-		make(chan conn.Connection),
-		make(chan conn.Client),
+		make(chan tcp.Connection),
+		make(chan tcp.Client),
 		make(chan bool),
 		make(chan bool),
 		make(chan CompleteMessage),
@@ -38,7 +38,7 @@ func NewClientManager(a *Aggregator) *ClientManager {
 }
 
 func (self *ClientManager) Run(interval time.Duration, timeout int, tsComplete, tsNew chan<- time.Time) {
-	clients := make(map[int64]conn.Client)
+	clients := make(map[int64]tcp.Client)
 	ticker := NewTicker(interval)
 
 	outstandingStats := map[time.Time]int{}
@@ -139,7 +139,7 @@ func (self *ClientManager) Run(interval time.Duration, timeout int, tsComplete, 
 	}
 }
 
-func (self *ClientManager) NewClient(c conn.Connection) {
+func (self *ClientManager) NewClient(c tcp.Connection) {
 	self.addClientC <- c
 }
 

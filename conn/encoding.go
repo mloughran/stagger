@@ -1,8 +1,6 @@
 package conn
 
-import (
-	"io"
-)
+import "io"
 
 type Encoding interface {
 	ReadMessage(io.Reader) (Message, error)
