@@ -1,5 +1,5 @@
 // Package client implements a Stagger client for Go programs. There
-// are four different types of metric supported:
+// are three different types of metric supported:
 //
 //   * Callbacks, which are called once every reporting period to
 //     gather metric values. These are useful for
@@ -17,24 +17,22 @@
 //     the number of values reported, the min, the max, the sum, and
 //     the sum-of-squares.
 //
-// Reporting is atomic, the server is never sent a partially-updated
-// state.
+// There is a "callback" variant of each metric type, where the metric
+// is only measured when the Stagger server requests a measurement.
+// These are useful for metrics which would be inconvenient to meausre
+// on change, such as garbage collection pause time.
 //
-// For Counts, Rate Counters, and Distributions, "Reporter" values are
-// available, which can be used to report new values without needing
-// to keep track of the metric name. These may be useful for creating
-// a collection of reporters in one place and then passing them around
-// to other functions.
-//
-// For Counts and Rate Counters, functions are available to report
-// deltas, rather than absolute values.
+// "Reporter" values are available, which can be used to report new
+// values without needing to keep track of the metric name. These may
+// be useful for creating a collection of reporters in one place and
+// then passing them around to other functions.
 //
 // Here are some example metrics, and the type of Stagger metric most
 // suitable:
 //
-//   * Allocated memory: a callback (using runtime.ReadMemStats), as
-//     reporting this on every allocation would add a lot of noise to
-//     the rest of the code.
+//   * Allocated memory: a count callback (using
+//     runtime.ReadMemStats), as reporting this on every allocation
+//     would add a lot of noise to the rest of the code.
 //
 //   * Number of connected network clients: a count, either reporting
 //     the total number of connected clients (if that information is
@@ -47,6 +45,12 @@
 //
 //   * Time some operation takes: a distribution, reporting the
 //     duration of each operation as a new entry.
+//
+//   * Garbage collection pause times: a distribution callback (using
+//     runtime.ReadMemStats).
+//
+// Reporting is atomic, the server is never sent a partially-updated
+// state.
 package client
 
 import (
@@ -61,19 +65,16 @@ import (
 )
 
 type (
-	callbacks struct {
-		metrics map[conn.StatKey]func() float64
-		mutex   sync.Mutex
-	}
-
 	counts struct {
-		metrics map[conn.StatKey]float64
-		mutex   sync.Mutex
+		values    map[conn.StatKey]float64
+		callbacks map[conn.StatKey]func() float64
+		mutex     sync.Mutex
 	}
 
 	rateCounters struct {
-		metrics map[conn.StatKey]rateCounter
-		mutex   sync.Mutex
+		values    map[conn.StatKey]rateCounter
+		callbacks map[conn.StatKey]func() float64
+		mutex     sync.Mutex
 	}
 
 	// Like a counter, but (current - prior) is reported.
@@ -83,14 +84,14 @@ type (
 	}
 
 	distributions struct {
-		metrics map[conn.StatKey]metric.Dist
-		mutex   sync.Mutex
+		values    map[conn.StatKey]metric.Dist
+		callbacks map[conn.StatKey]func() float64
+		mutex     sync.Mutex
 	}
 
 	Client struct {
 		conn conn.Conn
 
-		callbacks     callbacks
 		counts        counts
 		rateCounters  rateCounters
 		distributions distributions
@@ -176,15 +177,6 @@ func (c *Client) RegisterProcess(tags map[string]string) error {
 	return c.conn.WriteMessage(conn.RegisterProcess{Tags: tags})
 }
 
-// RegisterCallback adds a metric-gathering callback to the client
-// which is called once every reporting period. This is useful for
-// infrequently-changing values.
-func (c *Client) RegisterCallback(k conn.StatKey, cb func() float64) {
-	c.callbacks.lock()
-	c.callbacks.unsafeRegister(k, cb)
-	c.callbacks.unlock()
-}
-
 // ReportCount reports the current value of a counter.
 func (c *Client) ReportCount(k conn.StatKey, v float64) {
 	c.counts.lock()
@@ -197,7 +189,7 @@ func (c *Client) ReportCount(k conn.StatKey, v float64) {
 // 0.
 func (c *Client) ReportCountDelta(k conn.StatKey, d float64) {
 	c.counts.lock()
-	v := c.counts.metrics[k]
+	v := c.counts.values[k]
 	c.counts.unsafeReport(k, v+d)
 	c.counts.unlock()
 }
@@ -210,6 +202,14 @@ func (c *Client) ReportCounts(counters map[conn.StatKey]float64) {
 	for k, v := range counters {
 		c.counts.unsafeReport(k, v)
 	}
+	c.counts.unlock()
+}
+
+// RegisterCountCallback adds a callback which will be used once every
+// reporting period to report the value of a count.
+func (c *Client) RegisterCountCallback(k conn.StatKey, cb func() float64) {
+	c.counts.lock()
+	c.counts.unsafeRegister(k, cb)
 	c.counts.unlock()
 }
 
@@ -228,7 +228,7 @@ func (c *Client) ReportRateCounter(k conn.StatKey, v float64) {
 // with a current (and prior) value of 0.
 func (c *Client) ReportRateCounterDelta(k conn.StatKey, d float64) {
 	c.rateCounters.lock()
-	v := c.rateCounters.metrics[k]
+	v := c.rateCounters.values[k]
 	c.rateCounters.unsafeReport(k, v.current+d)
 	c.rateCounters.unlock()
 }
@@ -240,6 +240,15 @@ func (c *Client) ReportRateCounters(counters map[conn.StatKey]float64) {
 	for k, v := range counters {
 		c.rateCounters.unsafeReport(k, v)
 	}
+	c.rateCounters.unlock()
+}
+
+// RegisterRateCounterCallback adds a callback which will be used once
+// every reporting period to report the current value of a rate
+// counter. The initial prior value is 0.
+func (c *Client) RegisterRateCounterCallback(k conn.StatKey, cb func() float64) {
+	c.rateCounters.lock()
+	c.rateCounters.unsafeRegister(k, cb)
 	c.rateCounters.unlock()
 }
 
@@ -292,19 +301,6 @@ func (c *Client) Run() error {
 
 /// INTERNAL
 
-func (cs *callbacks) lock() {
-	cs.mutex.Lock()
-}
-
-func (cs *callbacks) unlock() {
-	cs.mutex.Unlock()
-}
-
-// Not safe for concurrent use!
-func (cs *callbacks) unsafeRegister(k conn.StatKey, cb func() float64) {
-	cs.metrics[k] = cb
-}
-
 func (cs *counts) lock() {
 	cs.mutex.Lock()
 }
@@ -315,7 +311,12 @@ func (cs *counts) unlock() {
 
 // Not safe for concurrent use!
 func (cs *counts) unsafeReport(k conn.StatKey, v float64) {
-	cs.metrics[k] = v
+	cs.values[k] = v
+}
+
+// Not safe for concurrent use!
+func (cs *counts) unsafeRegister(k conn.StatKey, cb func() float64) {
+	cs.callbacks[k] = cb
 }
 
 func (rs *rateCounters) lock() {
@@ -328,9 +329,14 @@ func (rs *rateCounters) unlock() {
 
 // Not safe for concurrent use!
 func (rs *rateCounters) unsafeReport(k conn.StatKey, v float64) {
-	r := rs.metrics[k]
+	r := rs.values[k]
 	r.current = v
-	rs.metrics[k] = r
+	rs.values[k] = r
+}
+
+// Not safe for concurrent use!
+func (rs *rateCounters) unsafeRegister(k conn.StatKey, cb func() float64) {
+	rs.callbacks[k] = cb
 }
 
 func (ds *distributions) lock() {
@@ -343,7 +349,7 @@ func (ds *distributions) unlock() {
 
 // Not safe for concurrent use!
 func (ds *distributions) unsafeReport(k conn.StatKey, v float64) {
-	d, ok := ds.metrics[k]
+	d, ok := ds.values[k]
 
 	if ok {
 		d.AddEntry(v)
@@ -351,53 +357,73 @@ func (ds *distributions) unsafeReport(k conn.StatKey, v float64) {
 		d = *metric.NewDistFromValue(v)
 	}
 
-	ds.metrics[k] = d
+	ds.values[k] = d
+}
+
+// Not safe for concurrent use!
+func (ds *distributions) unsafeRegister(k conn.StatKey, cb func() float64) {
+	ds.callbacks[k] = cb
 }
 
 // Returns the current statistics, is atomic.
 func (c *Client) report() conn.Stats {
 	// Prevent concurrent modification of the stats as we report.
-	c.callbacks.lock()
 	c.counts.lock()
 	c.rateCounters.lock()
 	c.distributions.lock()
-	defer c.callbacks.unlock()
 	defer c.counts.unlock()
 	defer c.rateCounters.unlock()
 	defer c.distributions.unlock()
 
+	// Run all the callbacks, to populate the values.
+	for k, vf := range c.counts.callbacks {
+		c.counts.values[k] = vf()
+	}
+	for k, vf := range c.rateCounters.callbacks {
+		rateCounter := c.rateCounters.values[k]
+		rateCounter.prior = rateCounter.current
+		rateCounter.current = vf()
+	}
+	for k, vf := range c.distributions.callbacks {
+		value := vf()
+		dist, ok := c.distributions.values[k]
+
+		if ok {
+			dist.AddEntry(value)
+		} else {
+			dist = *metric.NewDistFromValue(value)
+		}
+
+		c.distributions.values[k] = dist
+	}
+
+	// Then construct a conn.Stats struct with all the metric values in.
 	var (
-		numCallbacks  = len(c.callbacks.metrics)
-		numCounts     = len(c.counts.metrics)
-		numRateCounts = len(c.rateCounters.metrics)
-		numDists      = len(c.distributions.metrics)
+		numCounts     = len(c.counts.values)
+		numRateCounts = len(c.rateCounters.values)
+		numDists      = len(c.distributions.values)
 	)
 
 	stats := conn.Stats{
 		Timestamp: time.Now().Unix(),
-		Counts:    make([]conn.StatCount, numCallbacks+numCounts+numRateCounts, numCallbacks+numCounts+numRateCounts),
-		Dists:     make([]conn.StatDist, numDists, numDists),
+		Counts:    make([]conn.StatCount, numCounts+numRateCounts),
+		Dists:     make([]conn.StatDist, numDists),
 	}
 
 	i := 0
-	for k, cb := range c.callbacks.metrics {
-		stats.Counts[i] = conn.StatCount{Name: k.String(), Count: cb()}
-		i++
-	}
-
-	for k, v := range c.counts.metrics {
+	for k, v := range c.counts.values {
 		stats.Counts[i] = conn.StatCount{Name: k.String(), Count: v}
 		i++
 	}
 
-	for k, v := range c.rateCounters.metrics {
+	for k, v := range c.rateCounters.values {
 		stats.Counts[i] = conn.StatCount{Name: k.String(), Count: v.current - v.prior}
 		v.prior = v.current
 		i++
 	}
 
 	i = 0
-	for k, v := range c.distributions.metrics {
+	for k, v := range c.distributions.values {
 		stats.Dists[i] = conn.StatDist{Name: k.String(), Dist: [5]float64{v.N, v.Min, v.Max, v.Sum_x, v.Sum_x2}}
 		i++
 	}
