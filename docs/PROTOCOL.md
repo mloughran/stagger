@@ -1,75 +1,161 @@
-## Registration (proc -> stats)
+# Stagger protocol (TCPv2)
 
-On startup, clients bind a ZMQ PAIR socket which will be used to respond to stats requests. They then send this address string to the stats server via a ZMQ push socket. The address may be an ipc or tcp socket.
+This document describes how the stagger server and clients interact using the
+TCPv2 protocol. All other protocols are deprecated and will be removed in the
+short future.
 
-    Address: ipc:///some/unix/socket
-    Name: client provided name (optional)
+## Connection
 
-The name when logging client actions.
+The client connects to the server using a TCP socket. The default address is
+`localhost:5865`.
 
-After the initial registration this push socket MAY be closed.
+The client and server communicate using an asynchronous message-based RPC
+protocol. The encoding of each message is described in the
+[ENCODING](./ENCODING.md) doc.
 
-The stats server will connect to the PAIR socket and send commands.
+When the client is connected it is recommended to send a `register_process`
+call so that stagger can identify the client in the logs.
 
-## Requesting stats (stats -> proc)
+## Methods
 
-When the stats server wishes to receive stats it will request them from the client by sending a message on the PAIR socket.
+Here is the list of all the methods and in which directions they are sent.
 
-To request all stats from the client it just sends
+### `pair:ping` (Both)
 
-    Method: report_all
-    Timestamp: 123456 [unix timestamp in seconds]
+When either end hasn't received a message "for a while" it can request a
+livelyhood-checking message.
 
-To request a subset of stats it should send
+Params:
 
-    Method: report_list
-    Timestamp: 123456
-    Stats: ["list", "of", "stat", "names"]
+```json
+{}
+```
 
-The client should reply to a stats request a stats reply.
+### `pair:pong` (Both)
 
-## Sending stats (proc -> stats)
+Sent back to the `pair:ping` requesting party.
 
-Stats should be sent as a multipart ZMQ message. The first part (called the envelope), and then one or more message parts containing stats. Each part may contain one or more stats.
+Params:
 
-Envelope example:
+```json
+{}
+```
 
-    Method: stats_reply
-    Timestamp: 123456 [the unix timestamp sent by the request]
+### `report_all` (server -> client)
 
-Stats example
+When the stats server wishes to receive stats it will request them from the
+client by sending this message. The params requires a Timestamp in unix epoch
+seconds.
 
-    [{
-      Name: connections
-      Type: value
-      Val: 23
-    }, ...]
+The client currently has 1 second to return all it's metrics using
+`stats_partial` and `stats_all` methods.
 
-The reasoning behing this design is to allow clients to optimise the sending of stats. A process which sends a small number of small stats may send them all in one part (to reduce the number of kernel calls), while a process that sends a lot of data may wish to send stats in multiple parts to avoid using lots of memory or blocking an evented process.
+Example:
 
-A process MAY decide that it is overloaded or does not wish to reply with stats for some reason. In this case it SHOULD send a reply to that effect. This lets the stats server know not to wait for stats from this process, and allows it to propagate aggregated stats from other processes without delay.
+```json
+{
+  "Timestamp": 123456
+}
+```
 
-    Method: skipping
-    Timestamp: 1234
-    Reason: "Optional reason, will be printed in stats logs"
+### `register_process` (client -> server)
 
-## Different types of stats
+Can be sent by the client to identify itself to the server. The params
+contains an arbitrary list of string to string tags.
 
-    value
-    count
-    see aggregations in DTrace
+Example:
 
-Should we be able to send min & max separately? Maybe distrib? What about buckets.
+```json
+{
+  "Tags": {
+    "pid": "1234",
+    "cmd": "./hello"
+  }
+}
+```
 
-It may be desirable to segment stats. This is done as follows
+### `stats_partial` (client -> server)
 
-    Name: connections
-    Segments: (type, [(HTTP, 23), (HTTPS, 13)])
+Used to send partial metrics after the client gets a `report_all` call from
+the server. This method allows to send stats back to the server in multiple
+parts.
 
-A stat may be segmented by multiple parameters. For example
+It's useful when some stats might be retrieved in an unreliable fashion and
+the client wants to make sure that the rest of the stats are collected before
+the 1 second deadline. Or if the client has a lot of stats to send and want to
+transmit them in a chunked fashion.
 
-    Name: connections
-    Segments: ((type, user), [((HTTP, 42), 13), ((HTTP, 12), 11)])
+To mark the completion of all `stats_partial` calls, the `stats_complete`
+method has to be used (possibly with no values).
 
-The server will automatically aggregate this data in order to get e.g. connections per user any per type automatically.
+Example:
+
+```json
+{
+  "Timestamp": 123456,
+  "Counts": [],
+  "Dists": []
+}
+```
+
+### `stats_complete` (client -> server)
+
+Used to send all remaining metrics after the client gets a `report_all` call
+from the server.
+
+The params can be empty if the goal is to close a sequence of `stats_partial`
+calls.
+
+Example:
+
+```json
+{
+  "Timestamp": 123456,
+  "Counts": [],
+  "Dists": []
+}
+```
+
+## Metrics
+
+There are two different type of metrics that stagger captures ; Counts
+(increments) and Distributions.
+
+### Counts
+
+Counters are used to describe increments only.
+
+```json
+{
+  "Name": "key2",
+  "Count": 0.5,
+}
+```
+
+### Distributions
+
+Used to describe the distribution of values (gauges) during the capture
+interval.
+
+The Dist key contains 5 float64 elements which map to
+ (Weight, Min, Max, Sum, Sum * 2)
+
+```json
+{
+  "Name": "key3",
+  "Dist": [0.1, 0.2, 0.3, 0.4, 0.5],
+}
+```
+
+## Encoding of tags
+
+For backward-compatiblity reasons, tags are encoded as part of the metric
+name. On reception stagger will decode them again.
+
+Format: "key,tag1=value1,tag2=value2"
+
+To avoid creating multiple keys the tags are supposed to be sorted
+alphabetically.
+
+Tags and values are strings that don't contain commas or equal characters.
 

@@ -3,20 +3,17 @@ package main
 import "time"
 
 // Like a time.Tick, but anchored at time modulo boundary
-func NewTicker(interval int) <-chan (time.Time) {
-
-	period := time.Duration(interval) * time.Second
+func NewTicker(period time.Duration) <-chan (time.Time) {
 	ticks := make(chan time.Time)
 	go func() {
 		// Wait till the end of the current period
 		elapsed := time.Now().UnixNano() % period.Nanoseconds()
-		now := <-time.After(time.Duration(period.Nanoseconds() - elapsed))
+		time.Sleep(time.Duration(period.Nanoseconds() - elapsed))
 
 		// Use Ticker to tick regularly
-		tick_chan := time.Tick(period)
-		ticks <- now
+		tickChan := time.Tick(period)
 		for {
-			ticks <- <-tick_chan
+			ticks <- (<-tickChan).Round(time.Second)
 		}
 	}()
 	return ticks

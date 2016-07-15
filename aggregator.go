@@ -1,87 +1,104 @@
-// Responsible for receiving stats (on a channel), aggregating them into snapshots per time interval, and outputting data for completed intervals on the output channel.
+// Responsible for receiving stats (on a channel), aggregating them into
+// snapshots per time interval, and outputting data for completed intervals on
+// the output channel.
 //
-// * At any point in time the aggregator is aggregating stats into 2 snapshots - passed & next. Passed is the last tick timestamp, which is waiting for all survey data to be reported. Stats reported without an associated timestamp go into next. The next snapshot is propagated to passed when the next tick occurs, and will be outputted when all survey data has also been received.
-// * If data is received for an already report snapshop, an error is logged and the data is discarded.
+// If data is received for an already report snapshop, an error is logged and
+// the data is discarded.
 
 package main
 
+import (
+	"github.com/pusher/stagger/conn"
+	"github.com/pusher/stagger/metric"
+	"time"
+)
+
+type Count float64
+
 type Aggregator struct {
-	output   chan (*TimestampedStats)
-	passed   *TimestampedStats
-	passedTs int64
-	next     *TimestampedStats
-	Stats    chan (*Stats)
+	output  chan (*metric.TimestampedStats)
+	current *metric.TimestampedStats
+	Stats   chan (*conn.Stats)
 }
 
 func NewAggregator() *Aggregator {
 	return &Aggregator{
-		output: make(chan *TimestampedStats),
-		next:   NewTimestampedStats(-1),
-		Stats:  make(chan *Stats),
+		output: make(chan *metric.TimestampedStats),
+		Stats:  make(chan *conn.Stats),
 	}
 }
 
-func (self *Aggregator) Run(ts_complete <-chan (int64), ts_new <-chan (int64)) {
+func (self *Aggregator) Run(tsComplete <-chan time.Time, tsNew <-chan time.Time) {
 	for {
 		select {
-		case ts := <-ts_new:
-			self.newInterval(ts)
+		case t := <-tsNew:
+			self.newInterval(t)
 		case stats := <-self.Stats:
 			self.feed(stats)
-		case ts := <-ts_complete:
-			self.report(ts)
+		case t := <-tsComplete:
+			self.report(t)
 		}
 	}
 }
 
-func (self *Aggregator) newInterval(ts int64) {
-	if self.passed != nil && !self.passed.Empty {
-		self.report(self.passed.Timestamp)
+func (self *Aggregator) newInterval(t time.Time) {
+	if self.current != nil && !self.current.Empty {
+		self.report(self.current.Timestamp)
 	}
-	self.passedTs = ts
-	self.passed = self.next
-	self.passed.Timestamp = ts
-	self.next = NewTimestampedStats(-1)
+	self.current = metric.NewTimestampedStats(t)
 }
 
-func (self *Aggregator) feed(stats *Stats) {
-	if stats.Timestamp == self.passedTs {
-		for _, s := range stats.Values {
-			self.passed.AddValue(s)
-		}
-		for _, s := range stats.Counts {
-			self.passed.AddCount(s)
-		}
-		for _, s := range stats.Dists {
-			self.passed.AddDist(s)
-		}
-	} else {
-		info.Printf("[aggregator] (ts:%v) Stats received for unexpected timestamp, discarding", stats.Timestamp)
+func (self *Aggregator) feed(stats *conn.Stats) {
+	var currentTs *time.Time
+	if self.current != nil {
+		currentTs = &self.current.Timestamp
+	}
+	if currentTs == nil || stats.Timestamp != currentTs.Unix() {
+		info.Printf(
+			"[aggregator] (ts:%v) Stats received for unexpected timestamp %v, discarding",
+			currentTs,
+			stats.Timestamp,
+		)
+		return
+	}
+
+	for _, s := range stats.Values {
+		self.current.AddValue(s)
+	}
+	for _, s := range stats.Counts {
+		self.current.AddCount(s)
+	}
+	for _, s := range stats.Dists {
+		self.current.AddDist(s)
 	}
 }
 
-func (self *Aggregator) report(ts int64) {
-	if ts == self.passedTs {
-		debug.Printf("[aggregator] (ts:%v) Finished aggregating data", ts)
-		self.output <- self.passed
-		self.passed = nil
-		self.passedTs = -1
-	} else {
-		info.Printf("[aggregator] ERROR, impossible timestamp, passedTs is %v, got finish for %v", self.passedTs, ts)
+func (self *Aggregator) report(t time.Time) {
+	if self.current == nil {
+		panic("Missing timestamped stats to report")
 	}
+	if t != self.current.Timestamp {
+		info.Printf("[aggregator] ERROR, impossible timestamp, current is %v, got finish for %v", self.current.Timestamp, t)
+		return
+	}
+	debug.Printf("[aggregator] (ts:%v) Finished aggregating data", t)
+	self.output <- self.current
+	self.current = nil
 }
+
+// These functions are for internal reporting
 
 // TODO: Not sure about these functions
-func (self *Aggregator) Count(ts int64, name string, value Count, Type string) {
-	self.Stats <- &Stats{
+func (self *Aggregator) Count(ts int64, name string, value Count) {
+	self.Stats <- &conn.Stats{
 		Timestamp: ts,
-		Counts:    []StatCount{StatCount{name, float64(value), &Type}},
+		Counts:    []conn.StatCount{conn.StatCount{name, float64(value)}},
 	}
 }
 
-func (self *Aggregator) Value(ts int64, name string, value float64, Type string) {
-	self.Stats <- &Stats{
+func (self *Aggregator) Value(ts int64, name string, value float64) {
+	self.Stats <- &conn.Stats{
 		Timestamp: ts,
-		Values:    []StatValue{StatValue{name, value, &Type}},
+		Values:    []conn.StatValue{conn.StatValue{name, value}},
 	}
 }
