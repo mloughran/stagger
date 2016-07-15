@@ -105,14 +105,14 @@ type (
 	}
 )
 
-// Dial connects to Stagger and send a RegisterProcess message with
+// NewClient connects to Stagger and send a RegisterProcess message with
 // the supplied tags. If the tags are nil, then the defaults are used:
 //
 //   map[string]string{
 //       "cmd": os.Args[0],
 //       "pid": strconv.Itoa(os.Getpid()),
 //   }
-func Dial(addr string, tags map[string]string) (*Client, error) {
+func NewClient(addr string, tags map[string]string) (*Client, error) {
 	c1, err := net.DialTimeout("tcp", addr, 5*time.Second)
 	if err != nil {
 		return nil, err
